@@ -34,7 +34,8 @@ _NO = frozenset({"false", "0", "no"})
 def normalize_uids(valor: Any, nombre: str = "uids") -> list[int]:
     """Normaliza una lista de uid a `list[int]`.
 
-    Valen la lista de enteros, el texto JSON (`"[21055,21051]"`), la lista
+    Valen la lista de enteros, la lista con sus números escritos
+    (`["21055","21051"]`), el texto JSON (`"[21055,21051]"`), la lista
     separada por comas (`"21055,21051"`) y el número suelto (`"21055"`). Los
     uid repetidos se quedan una vez: contarlos dos veces no marca dos veces.
     """

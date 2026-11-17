@@ -70,7 +70,7 @@ servidor entiende las dos formas:
 
 | Argumento | Formas |
 | --- | --- |
-| `uids` (`mark_read`, `mark_unread`, `prepare_delete`) | `[21055, 21051]`, `"[21055,21051]"`, `"21055,21051"`, `"21055"` |
+| `uids` (`mark_read`, `mark_unread`, `prepare_delete`) | `[21055, 21051]`, `["21055", "21051"]`, `"[21055,21051]"`, `"21055,21051"`, `"21055"` |
 | `uid`, `index`, `limit`, `max_chars` | `20` o `"20"` |
 | `unseen`, `permanent` | `true`/`false` o `"true"`/`"false"`/`"1"`/`"0"` |
 | `to`, `cc`, `bcc` | `["ana@example.com"]` o `"ana@example.com"` |
@@ -82,8 +82,16 @@ el servidor, con Ajv **sin coerción**
 (`server/mcp-schema-validator.ts` en `milind-soni/OpenMausBot`). Un
 argumento que llega como texto —porque el modelo lo escribió como texto, o
 porque el puente lo convirtió— se rechaza allí con «must be integer» o
-«must be array», y **la llamada no sale del puente**: el servidor ni la ve.
+«must be boolean», y **la llamada no sale del puente**: el servidor ni la ve.
 Con las formas escritas, esa llamada llega y se hace.
+
+Por la vía genérica de MCP (`mcp_call_tool`) el puente convierte a texto
+**todo** argumento que no sea texto: los números, los booleanos y también
+los números que van dentro de un arreglo (`uids: [21055]` llega como
+`["21055"]`, y el validador lo rechaza con «uids.0: must be integer»).
+Por eso el esquema declara las dos formas de cada tipo, y no solo la
+textual de los números: un `unseen: true` que llega como `"true"` también
+tiene que pasar el filtro del puente.
 
 El puente de las apps conectadas sí ajusta los tipos
 (`server/connector-arguments.ts`); el de las tools de MCP no. La corrección

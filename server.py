@@ -962,11 +962,14 @@ def _register_write_tools(
     if caps["mark"]:
 
         @mcp.tool(annotations=MARK, structured_output=False)
-        def mark_read(uids: list[int] | str, account: str = "", folder: str = "INBOX") -> dict:
+        def mark_read(
+            uids: list[int | str] | str, account: str = "", folder: str = "INBOX"
+        ) -> dict:
             """Pone la flag \\Seen. Acción directa y auditada; solo si se pidió.
 
-            uids admite una lista de números, el texto JSON ("[21055,21051]"),
-            la lista separada por comas ("21055,21051") o un solo número.
+            uids admite una lista de números, una lista con sus números
+            escritos (["21055","21051"]), el texto JSON ("[21055,21051]"), la
+            lista separada por comas ("21055,21051") o un solo número.
             """
 
             def action() -> dict:
@@ -977,11 +980,14 @@ def _register_write_tools(
             return run(action)
 
         @mcp.tool(annotations=MARK, structured_output=False)
-        def mark_unread(uids: list[int] | str, account: str = "", folder: str = "INBOX") -> dict:
+        def mark_unread(
+            uids: list[int | str] | str, account: str = "", folder: str = "INBOX"
+        ) -> dict:
             """Quita la flag \\Seen. Acción directa y auditada; solo si se pidió.
 
-            uids admite una lista de números, el texto JSON ("[21055,21051]"),
-            la lista separada por comas ("21055,21051") o un solo número.
+            uids admite una lista de números, una lista con sus números
+            escritos (["21055","21051"]), el texto JSON ("[21055,21051]"), la
+            lista separada por comas ("21055,21051") o un solo número.
             """
 
             def action() -> dict:
@@ -995,7 +1001,7 @@ def _register_write_tools(
 
         @mcp.tool(annotations=PREPARE, structured_output=False)
         def prepare_delete(
-            uids: list[int] | str,
+            uids: list[int | str] | str,
             account: str = "",
             folder: str = "INBOX",
             permanent: bool | str = False,

@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 from mcp.server.mcpserver.exceptions import ToolError
 
 from mail.errors import MailError
@@ -42,6 +43,10 @@ def _json(resultado: object) -> dict:
 
 def test_uids_desde_una_lista() -> None:
     assert normalize_uids([21055, 21051]) == [21055, 21051]
+
+
+def test_uids_desde_una_lista_con_sus_numeros_escritos() -> None:
+    assert normalize_uids(["21055", "21051"]) == [21055, 21051]
 
 
 def test_uids_desde_texto_json() -> None:
@@ -161,6 +166,10 @@ def test_marcar_leido_acepta_los_uid_como_texto(tmp_path: Path) -> None:
             await rig.mcp.call_tool("mark_read", {"account": "principal", "uids": "10,13"})
         )
         assert desde_csv["uids"] == [10, 13]
+        desde_lista = _json(
+            await rig.mcp.call_tool("mark_read", {"account": "principal", "uids": ["10", "13"]})
+        )
+        assert desde_lista["uids"] == [10, 13]
         desde_json = _json(
             await rig.mcp.call_tool("mark_unread", {"account": "principal", "uids": "[11, 12]"})
         )
@@ -247,6 +256,63 @@ def test_el_esquema_publicado_admite_las_formas_textuales(tmp_path: Path) -> Non
         assert {rama.get("type") for rama in limit["anyOf"]} == {"integer", "string"}
         unseen = tools["list_messages"].input_schema["properties"]["unseen"]
         assert {rama.get("type") for rama in unseen["anyOf"]} == {"boolean", "string"}
+
+    asyncio.run(run())
+
+
+def test_el_esquema_publicado_admite_una_lista_de_numeros_escritos(tmp_path: Path) -> None:
+    """La rama de arreglo tiene que aceptar los números que llegan escritos.
+
+    El puente de MCP entrega como texto todo argumento que no sea texto, y
+    eso incluye los que van dentro de un arreglo: `uids: [21055]` llega como
+    `["21055"]`. Con la lista de enteros, el validador del puente lo
+    rechaza con «uids.0: must be integer» y la llamada no sale.
+    """
+    rig = Rig(tmp_path)
+
+    async def run() -> None:
+        tools = {tool.name: tool for tool in await rig.mcp.list_tools()}
+        for nombre in ("mark_read", "mark_unread", "prepare_delete"):
+            uids = tools[nombre].input_schema["properties"]["uids"]
+            arreglo = next(rama for rama in uids["anyOf"] if rama.get("type") == "array")
+            assert {item.get("type") for item in arreglo["items"]["anyOf"]} == {
+                "integer",
+                "string",
+            }
+
+    asyncio.run(run())
+
+
+def test_el_esquema_publicado_pasa_el_filtro_del_puente(tmp_path: Path) -> None:
+    """Las formas que entrega el puente tienen que pasar el filtro del puente.
+
+    El puente valida los argumentos contra el esquema publicado, con Ajv
+    **sin coerción**. Un argumento que llega como texto tiene que estar
+    declarado como texto en el esquema, o la llamada muere antes de llegar
+    al servidor.
+    """
+    rig = Rig(tmp_path)
+
+    async def run() -> None:
+        tools = {tool.name: tool for tool in await rig.mcp.list_tools()}
+        mark_read = Draft202012Validator(tools["mark_read"].input_schema)
+        list_messages = Draft202012Validator(tools["list_messages"].input_schema)
+        get_message = Draft202012Validator(tools["get_message"].input_schema)
+
+        for argumentos in (
+            {"uids": [21055]},
+            {"uids": ["21055"]},
+            {"uids": "21055,21051"},
+            {"uids": "21055"},
+        ):
+            assert mark_read.is_valid(argumentos), argumentos
+        assert list_messages.is_valid({"limit": "5"}), "limit escrito"
+        assert list_messages.is_valid({"unseen": "true"}), "unseen escrito"
+        assert get_message.is_valid({"uid": "21055"}), "uid escrito"
+
+        # Lo que no se entiende sigue sin pasar.
+        assert not mark_read.is_valid({"uids": [True]})
+        assert not list_messages.is_valid({"unseen": 1})
 
     asyncio.run(run())
 

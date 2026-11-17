@@ -105,7 +105,8 @@ interruptor global está en `true` y alguna cuenta lo permite.
 Los argumentos se pueden entregar en su tipo o escritos: `limit: 20` o
 `"20"`, `uids: [21055]` o `"21055,21051"`, `unseen: true` o `"true"`. El
 servidor normaliza lo que llega y rechaza, con un error que dice qué
-recibió, lo que no entiende.
+recibió, lo que no entiende. Una lista de uid también vale con sus números
+escritos: `["21055", "21051"]`.
 
 Está pensado para los puentes MCP que validan los argumentos sin coerción
 (el de OpenMausBot entre ellos): un argumento escrito se rechaza en el
