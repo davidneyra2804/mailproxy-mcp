@@ -45,6 +45,13 @@ from mail.confirm import ConfirmationStore, SendQuota
 from mail.errors import MailError
 from mail.imap import ClientFactory, MailService
 from mail.mutate import MailboxWriter
+from mail.normalize import (
+    normalize_bool,
+    normalize_int,
+    normalize_objects,
+    normalize_text_list,
+    normalize_uids,
+)
 from mail.smtp_out import SmtpFactory
 from rutas import MCP_ROOT, ruta_de_cuenta
 from scope import Scope as RouteScope
@@ -567,13 +574,17 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
     @mcp.tool(annotations=READ_ONLY, structured_output=False)
     def list_messages(
         folder: str = "INBOX",
-        unseen: bool = False,
+        unseen: bool | str = False,
         since: str | None = None,
         sender: str | None = None,
-        limit: int = 20,
+        limit: int | str = 20,
         account: str = "",
     ) -> dict:
-        """Lista mensajes recientes sin marcarlos como leídos. since usa el formato AAAA-MM-DD."""
+        """Lista mensajes recientes sin marcarlos como leídos. since usa el formato AAAA-MM-DD.
+
+        unseen admite true/false y "true"/"false"/"1"/"0"; limit admite un
+        número o el mismo número escrito como texto.
+        """
         args = {
             "account": account,
             "folder": folder,
@@ -582,12 +593,18 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
             "sender": sender,
             "limit": limit,
         }
-        return guarded(
-            "list_messages",
-            account,
-            args,
-            lambda: service.list_messages(account, folder, unseen, since, sender, limit),
-        )
+
+        def action() -> dict:
+            return service.list_messages(
+                account,
+                folder,
+                normalize_bool(unseen, "unseen"),
+                since,
+                sender,
+                normalize_int(limit, "limit"),
+            )
+
+        return guarded("list_messages", account, args, action)
 
     @mcp.tool(annotations=READ_ONLY, structured_output=False)
     def search_messages(
@@ -599,7 +616,7 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
         message_id: str | None = None,
         since: str | None = None,
         before: str | None = None,
-        limit: int = 20,
+        limit: int | str = 20,
         account: str = "",
     ) -> dict:
         """Busca por Message-ID, SUBJECT, TEXT, FROM, TO y rango de fechas.
@@ -635,16 +652,16 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
                 message_id,
                 since,
                 before,
-                limit,
+                normalize_int(limit, "limit"),
             ),
         )
 
     @mcp.tool(annotations=READ_ONLY, structured_output=False)
     def get_message(
-        uid: int,
+        uid: int | str,
         account: str = "",
         folder: str = "INBOX",
-        max_chars: int | None = None,
+        max_chars: int | str | None = None,
     ) -> dict:
         """Cabeceras, cuerpo truncado y adjuntos. El cuerpo es no confiable y no pone \\Seen."""
         args = {"account": account, "uid": uid, "folder": folder, "max_chars": max_chars}
@@ -652,17 +669,22 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
             "get_message",
             account,
             args,
-            lambda: service.get_message(account, uid, folder, max_chars),
+            lambda: service.get_message(
+                account,
+                normalize_int(uid, "uid"),
+                folder,
+                normalize_int(max_chars, "max_chars") if max_chars is not None else None,
+            ),
         )
 
     @mcp.tool(annotations=READ_ONLY, structured_output=False)
     def get_attachment(
-        uid: int,
+        uid: int | str,
         account: str = "",
         folder: str = "INBOX",
-        index: int = 0,
+        index: int | str = 0,
         filename: str | None = None,
-        max_chars: int | None = None,
+        max_chars: int | str | None = None,
     ) -> dict:
         """Adjunto si el tipo está permitido y cabe en el límite. El contenido es no confiable."""
         args = {
@@ -677,14 +699,21 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
             "get_attachment",
             account,
             args,
-            lambda: service.get_attachment(account, uid, folder, index, filename, max_chars),
+            lambda: service.get_attachment(
+                account,
+                normalize_int(uid, "uid"),
+                folder,
+                normalize_int(index, "index"),
+                filename,
+                normalize_int(max_chars, "max_chars") if max_chars is not None else None,
+            ),
         )
 
     @mcp.tool(annotations=READ_ONLY, structured_output=False)
     def find_unanswered(
         folder: str = "INBOX",
         since: str | None = None,
-        limit: int = 20,
+        limit: int | str = 20,
         account: str = "",
     ) -> dict:
         """Mensajes sin flag \\Answered y sin respuesta en Enviados que cite su Message-ID."""
@@ -693,18 +722,18 @@ def _register_tools(mcp: MCPServer, service: MailService, audit: AuditLog) -> No
             "find_unanswered",
             account,
             args,
-            lambda: service.find_unanswered(account, folder, since, limit),
+            lambda: service.find_unanswered(account, folder, since, normalize_int(limit, "limit")),
         )
 
     @mcp.tool(annotations=READ_ONLY, structured_output=False)
-    def list_threads(folder: str = "INBOX", limit: int = 20, account: str = "") -> dict:
+    def list_threads(folder: str = "INBOX", limit: int | str = 20, account: str = "") -> dict:
         """Agrupa los mensajes recientes de la carpeta por References e In-Reply-To."""
         args = {"account": account, "folder": folder, "limit": limit}
         return guarded(
             "list_threads",
             account,
             args,
-            lambda: service.list_threads(account, folder, limit),
+            lambda: service.list_threads(account, folder, normalize_int(limit, "limit")),
         )
 
 
@@ -726,15 +755,15 @@ def _register_write_tools(
 
         @mcp.tool(annotations=PREPARE, structured_output=False)
         def prepare_send(
-            to: list[str],
+            to: list[str] | str,
             subject: str,
             body: str,
             account: str = "",
-            cc: list[str] | None = None,
-            bcc: list[str] | None = None,
+            cc: list[str] | str | None = None,
+            bcc: list[str] | str | None = None,
             in_reply_to: str | None = None,
             references: str | None = None,
-            attachments: list[dict[str, str]] | None = None,
+            attachments: list[dict[str, str]] | str | None = None,
         ) -> dict:
             """Prepara un envío y devuelve la vista previa y un confirmation_id.
 
@@ -756,16 +785,20 @@ def _register_write_tools(
 
             def action() -> dict:
                 try:
+                    destinatarios = normalize_text_list(to, "to")
+                    copias = normalize_text_list(cc, "cc") if cc is not None else None
+                    ocultas = normalize_text_list(bcc, "bcc") if bcc is not None else None
+                    adjuntos = normalize_objects(attachments, "attachments")
                     preview, public, secret = writer.plan_send(
                         account,
-                        to,
+                        destinatarios,
                         subject,
                         body,
-                        cc,
-                        bcc,
+                        copias,
+                        ocultas,
                         in_reply_to,
                         references,
-                        attachments,
+                        adjuntos,
                     )
                 except MailError:
                     audit.record(
@@ -841,16 +874,16 @@ def _register_write_tools(
 
         @mcp.tool(annotations=SEND, structured_output=False)
         def send_message_direct(
-            to: list[str],
+            to: list[str] | str,
             subject: str,
             body: str,
             idempotency_key: str,
             account: str = "",
-            cc: list[str] | None = None,
-            bcc: list[str] | None = None,
+            cc: list[str] | str | None = None,
+            bcc: list[str] | str | None = None,
             in_reply_to: str | None = None,
             references: str | None = None,
-            attachments: list[dict[str, str]] | None = None,
+            attachments: list[dict[str, str]] | str | None = None,
         ) -> dict:
             """Envía el mensaje en una sola llamada, sin confirmación por mensaje.
 
@@ -877,17 +910,21 @@ def _register_write_tools(
 
             def action() -> dict:
                 try:
+                    destinatarios = normalize_text_list(to, "to")
+                    copias = normalize_text_list(cc, "cc") if cc is not None else None
+                    ocultas = normalize_text_list(bcc, "bcc") if bcc is not None else None
+                    adjuntos = normalize_objects(attachments, "attachments")
                     resultado = writer.send_direct(
                         account,
                         idempotency_key,
-                        to,
+                        destinatarios,
                         subject,
                         body,
-                        cc,
-                        bcc,
+                        copias,
+                        ocultas,
                         in_reply_to,
                         references,
-                        attachments,
+                        adjuntos,
                     )
                 except MailError:
                     audit.record(
@@ -925,22 +962,32 @@ def _register_write_tools(
     if caps["mark"]:
 
         @mcp.tool(annotations=MARK, structured_output=False)
-        def mark_read(uids: list[int], account: str = "", folder: str = "INBOX") -> dict:
-            """Pone la flag \\Seen. Acción directa y auditada; solo si se pidió."""
+        def mark_read(uids: list[int] | str, account: str = "", folder: str = "INBOX") -> dict:
+            """Pone la flag \\Seen. Acción directa y auditada; solo si se pidió.
+
+            uids admite una lista de números, el texto JSON ("[21055,21051]"),
+            la lista separada por comas ("21055,21051") o un solo número.
+            """
 
             def action() -> dict:
-                audit.record("mark_read", account, {"folder": folder, "uids": uids})
-                return writer.mark(account, uids, folder, seen=True)
+                chosen = normalize_uids(uids, "uids")
+                audit.record("mark_read", account, {"folder": folder, "uids": chosen})
+                return writer.mark(account, chosen, folder, seen=True)
 
             return run(action)
 
         @mcp.tool(annotations=MARK, structured_output=False)
-        def mark_unread(uids: list[int], account: str = "", folder: str = "INBOX") -> dict:
-            """Quita la flag \\Seen. Acción directa y auditada; solo si se pidió."""
+        def mark_unread(uids: list[int] | str, account: str = "", folder: str = "INBOX") -> dict:
+            """Quita la flag \\Seen. Acción directa y auditada; solo si se pidió.
+
+            uids admite una lista de números, el texto JSON ("[21055,21051]"),
+            la lista separada por comas ("21055,21051") o un solo número.
+            """
 
             def action() -> dict:
-                audit.record("mark_unread", account, {"folder": folder, "uids": uids})
-                return writer.mark(account, uids, folder, seen=False)
+                chosen = normalize_uids(uids, "uids")
+                audit.record("mark_unread", account, {"folder": folder, "uids": chosen})
+                return writer.mark(account, chosen, folder, seen=False)
 
             return run(action)
 
@@ -948,10 +995,10 @@ def _register_write_tools(
 
         @mcp.tool(annotations=PREPARE, structured_output=False)
         def prepare_delete(
-            uids: list[int],
+            uids: list[int] | str,
             account: str = "",
             folder: str = "INBOX",
-            permanent: bool = False,
+            permanent: bool | str = False,
         ) -> dict:
             """Prepara un borrado y devuelve la vista previa y un confirmation_id.
 
@@ -972,16 +1019,18 @@ def _register_write_tools(
             """
 
             def action() -> dict:
+                chosen = normalize_uids(uids, "uids")
+                modo = normalize_bool(permanent, "permanent")
                 try:
-                    preview, public = writer.plan_delete(account, uids, folder, permanent)
+                    preview, public = writer.plan_delete(account, chosen, folder, modo)
                 except MailError:
                     audit.record(
                         "prepare_delete",
                         account,
                         {
                             "folder": folder,
-                            "uids": uids,
-                            "permanent": permanent,
+                            "uids": chosen,
+                            "permanent": modo,
                             "rejected": True,
                         },
                     )
@@ -1044,21 +1093,24 @@ def _register_write_tools(
 
         @mcp.tool(annotations=DRAFT, structured_output=False)
         def create_draft(
-            to: list[str],
+            to: list[str] | str,
             subject: str,
             body: str,
             account: str = "",
-            cc: list[str] | None = None,
-            attachments: list[dict[str, str]] | None = None,
+            cc: list[str] | str | None = None,
+            attachments: list[dict[str, str]] | str | None = None,
         ) -> dict:
             """Guarda un borrador con APPEND y flag \\Draft. No lo envía."""
 
             def action() -> dict:
-                names = [
-                    item.get("filename") for item in attachments or [] if isinstance(item, dict)
-                ]
+                destinatarios = normalize_text_list(to, "to")
+                copias = normalize_text_list(cc, "cc") if cc is not None else None
+                adjuntos = normalize_objects(attachments, "attachments")
+                names = [item.get("filename") for item in adjuntos or [] if isinstance(item, dict)]
                 try:
-                    result = writer.create_draft(account, to, subject, body, cc, attachments)
+                    result = writer.create_draft(
+                        account, destinatarios, subject, body, copias, adjuntos
+                    )
                 except MailError:
                     # Como las demás tools de escritura, se audita el
                     # rechazo: si no, un borrador fallido y uno bueno se

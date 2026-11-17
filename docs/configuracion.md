@@ -63,6 +63,35 @@ cuenta puede tener los dos, o solo uno.
 | `MCP_ALLOWED_RECIPIENT_DOMAINS` | vacío: cualquier dominio; lista separada por comas |
 | `MCP_ALLOWED_ATTACHMENT_TYPES` | lista MIME por defecto; se puede sustituir con una lista separada por comas |
 
+## Los argumentos de las tools, también escritos
+
+Los argumentos de las tools se pueden entregar en su tipo o escritos, y el
+servidor entiende las dos formas:
+
+| Argumento | Formas |
+| --- | --- |
+| `uids` (`mark_read`, `mark_unread`, `prepare_delete`) | `[21055, 21051]`, `"[21055,21051]"`, `"21055,21051"`, `"21055"` |
+| `uid`, `index`, `limit`, `max_chars` | `20` o `"20"` |
+| `unseen`, `permanent` | `true`/`false` o `"true"`/`"false"`/`"1"`/`"0"` |
+| `to`, `cc`, `bcc` | `["ana@example.com"]` o `"ana@example.com"` |
+| `attachments` | `[{"filename": "nota.txt", ...}]` o su texto JSON |
+
+**Por qué hace falta.** El puente MCP de OpenMausBot, el que usa el equipo
+de correo, convierte todo argumento que no sea texto en texto y valida el
+esquema con Ajv sin coerción (`server/mcp-schema-validator.ts` y
+`server/drivers/chat-mcp-tools.ts` en `milind-soni/OpenMausBot`). Un
+`limit: 20` que llega como `"20"` se rechaza allí con «must be integer», y
+la llamada no sale del puente: el servidor ni la ve. Con las formas
+escritas, esa llamada llega y se hace.
+
+La corrección de raíz es del puente, no de aquí: con coerción en el
+validador, el servidor recibiría el `20` como número y esta tolerancia no
+haría falta. Está reportada aparte.
+
+Un valor que no se entiende no se descarta: se rechaza con un error que
+dice qué se recibió. Un uid que se pierde es un correo que el agente
+creía haber marcado y que sigue sin marcar, y eso no se ve.
+
 ## Docker y despliegue
 
 `.env.example` documenta las opciones de Compose, rotación, Cloudflare Tunnel
