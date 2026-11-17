@@ -7,6 +7,12 @@ el versionado es [SemVer](https://semver.org/lang/es/).
 
 ## [No publicado]
 
+## [2.3.0] — 2026-11-17
+
+Los argumentos de las tools se aceptan también escritos: el puente MCP
+entrega los números como texto y las llamadas morían antes de llegar al
+servidor.
+
 ### Changed
 
 - **Los argumentos de las tools se aceptan también escritos.** Un cliente
@@ -50,6 +56,22 @@ el versionado es [SemVer](https://semver.org/lang/es/).
   valiendo: un cliente que ya conoce el catálogo sigue funcionando sin
   refrescarlo. Lo que cambia es el esquema publicado, que ahora declara la
   unión (`anyOf`) para que el cliente vea las formas nuevas.
+
+### Despliegue
+
+- Hay que **refrescar el catálogo de las tools** en el cliente MCP: el
+  esquema publicado cambia, porque los tipos afectados ahora declaran la
+  unión (`anyOf`) entre el tipo y su forma textual. Los **nombres** de los
+  argumentos y de las claves de la respuesta no cambian, así que un cliente
+  con el catálogo viejo sigue funcionando.
+- La imagen se ha publicado **sin construir ni probar en local**: la máquina
+  de publicación no tiene Docker. `tests/test_docker.py` comprueba que los
+  módulos que tienen que entrar en la imagen estén, pero no que la imagen
+  construya, ni que los permisos del contenedor sean los correctos, ni que
+  el volumen de datos funcione.
+- La imagen sale **solo para `linux/amd64`**: el workflow no lleva
+  `setup-qemu` ni `platforms`. En un host arm64 hay que construirla en
+  local.
 
 ## [2.2.0] — 2026-11-05
 
