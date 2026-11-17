@@ -77,16 +77,19 @@ servidor entiende las dos formas:
 | `attachments` | `[{"filename": "nota.txt", ...}]` o su texto JSON |
 
 **Por qué hace falta.** El puente MCP de OpenMausBot, el que usa el equipo
-de correo, convierte todo argumento que no sea texto en texto y valida el
-esquema con Ajv sin coerción (`server/mcp-schema-validator.ts` y
-`server/drivers/chat-mcp-tools.ts` en `milind-soni/OpenMausBot`). Un
-`limit: 20` que llega como `"20"` se rechaza allí con «must be integer», y
-la llamada no sale del puente: el servidor ni la ve. Con las formas
-escritas, esa llamada llega y se hace.
+de correo, valida los argumentos de cada tool contra el esquema que publica
+el servidor, con Ajv **sin coerción**
+(`server/mcp-schema-validator.ts` en `milind-soni/OpenMausBot`). Un
+argumento que llega como texto —porque el modelo lo escribió como texto, o
+porque el puente lo convirtió— se rechaza allí con «must be integer» o
+«must be array», y **la llamada no sale del puente**: el servidor ni la ve.
+Con las formas escritas, esa llamada llega y se hace.
 
-La corrección de raíz es del puente, no de aquí: con coerción en el
-validador, el servidor recibiría el `20` como número y esta tolerancia no
-haría falta. Está reportada aparte.
+El puente de las apps conectadas sí ajusta los tipos
+(`server/connector-arguments.ts`); el de las tools de MCP no. La corrección
+de raíz es de ese puente, no de aquí: si el validador coerced, el servidor
+recibiría el `20` como número y esta tolerancia no haría falta. Está
+reportada aparte.
 
 Un valor que no se entiende no se descarta: se rechaza con un error que
 dice qué se recibió. Un uid que se pierde es un correo que el agente

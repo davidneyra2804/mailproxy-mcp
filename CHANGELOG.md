@@ -15,14 +15,15 @@ el versionado es [SemVer](https://semver.org/lang/es/).
   llamadas morían en el puente del cliente, antes de llegar al servidor, y
   el trabajo se quedaba sin hacer.
 
-  El puente MCP de OpenMausBot (el que usa el equipo de correo) convierte
-  todo argumento que no sea texto en texto y valida el esquema con Ajv sin
-  coerción, así que un `20` que llega como `"20"` se rechaza con «must be
-  integer» y la llamada no sale. La corrección de raíz es de ese puente
-  (`server/mcp-schema-validator.ts` y `server/drivers/chat-mcp-tools.ts` en
-  `milind-soni/OpenMausBot`): con coerción en el validador, esta mejora
-  del servidor no habría hecho falta. Hasta entonces, el servidor entiende
-  las dos formas.
+  El puente MCP de OpenMausBot (el que usa el equipo de correo) valida los
+  argumentos de cada tool contra el esquema que publica el servidor, con
+  Ajv **sin coerción** (`server/mcp-schema-validator.ts`): un argumento que
+  llega como texto se rechaza con «must be integer» o «must be array», y la
+  llamada no sale del puente. El puente de las apps conectadas sí ajusta los
+  tipos (`server/connector-arguments.ts`); el de las tools de MCP no. La
+  corrección de raíz es de ese puente: si el validador coerced, el servidor
+  recibiría el `20` como número y esta mejora no habría hecho falta. Hasta
+  entonces, el servidor entiende las dos formas.
 
   Lo que acepta ahora cada argumento:
 

@@ -107,9 +107,9 @@ Los argumentos se pueden entregar en su tipo o escritos: `limit: 20` o
 servidor normaliza lo que llega y rechaza, con un error que dice qué
 recibió, lo que no entiende.
 
-Está pensado para los puentes MCP que entregan los argumentos como texto
-(el de OpenMausBot entre ellos): con el tipo cerrado, esas llamadas
-morían antes de llegar al servidor. Los nombres de los argumentos no
+Está pensado para los puentes MCP que validan los argumentos sin coerción
+(el de OpenMausBot entre ellos): un argumento escrito se rechaza en el
+puente, antes de llegar al servidor. Los nombres de los argumentos no
 cambian, así que los clientes que ya conocen el catálogo siguen
 funcionando sin refrescarlo.
 
