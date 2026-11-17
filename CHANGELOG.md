@@ -7,6 +7,50 @@ el versionado es [SemVer](https://semver.org/lang/es/).
 
 ## [No publicado]
 
+### Changed
+
+- **Los argumentos de las tools se aceptan también escritos.** Un cliente
+  MCP puede entregar un argumento en su tipo o escrito: `limit: 20` o
+  `"20"`, `uids: [21055]` o `"21055,21051"`. Con el tipo cerrado, esas
+  llamadas morían en el puente del cliente, antes de llegar al servidor, y
+  el trabajo se quedaba sin hacer.
+
+  El puente MCP de OpenMausBot (el que usa el equipo de correo) valida los
+  argumentos de cada tool contra el esquema que publica el servidor, con
+  Ajv **sin coerción** (`server/mcp-schema-validator.ts`): un argumento que
+  llega como texto se rechaza con «must be integer» o «must be boolean», y la
+  llamada no sale del puente. El puente de las apps conectadas sí ajusta los
+  tipos (`server/connector-arguments.ts`); el de las tools de MCP no. La
+  corrección de raíz es de ese puente: si el validador coerced, el servidor
+  recibiría el `20` como número y esta mejora no habría hecho falta. Hasta
+  entonces, el servidor entiende las dos formas.
+
+  Por la vía genérica de MCP (`mcp_call_tool`) el puente convierte a texto
+  todo argumento que no sea texto, incluidos los que van dentro de un
+  arreglo: `uids: [21055]` llega como `["21055"]` y el validador lo
+  rechaza con «uids.0: must be integer». Por eso la rama de arreglo
+  declara `items` como unión de entero y texto, y la forma textual se
+  declara en todos los tipos afectados, no solo en los números.
+
+  Lo que acepta ahora cada argumento:
+
+  | Argumento | Formas |
+  | --- | --- |
+  | `uids` (`mark_read`, `mark_unread`, `prepare_delete`) | `[21055, 21051]`, `["21055", "21051"]`, `"[21055,21051]"`, `"21055,21051"`, `"21055"` |
+  | `uid`, `index`, `limit`, `max_chars` | `20` o `"20"` |
+  | `unseen`, `permanent` | `true`/`false` o `"true"`/`"false"`/`"1"`/`"0"` |
+  | `to`, `cc`, `bcc` | `["ana@example.com"]` o `"ana@example.com"` |
+  | `attachments` | `[{"filename": "nota.txt", ...}]` o su texto JSON |
+
+  Un valor que no se entiende **no** se descarta en silencio: se rechaza
+  con un error que dice qué se recibió y qué formas validas hay. Marcar un
+  correo que no se marcó, sin avisar, es peor que fallar.
+
+  Los nombres de los argumentos no cambian y los tipos de siempre siguen
+  valiendo: un cliente que ya conoce el catálogo sigue funcionando sin
+  refrescarlo. Lo que cambia es el esquema publicado, que ahora declara la
+  unión (`anyOf`) para que el cliente vea las formas nuevas.
+
 ## [2.2.0] — 2026-11-05
 
 El panel de cuentas vuelve a ser usable: «Cancelar» cierra el diálogo y el

@@ -63,6 +63,46 @@ cuenta puede tener los dos, o solo uno.
 | `MCP_ALLOWED_RECIPIENT_DOMAINS` | vacío: cualquier dominio; lista separada por comas |
 | `MCP_ALLOWED_ATTACHMENT_TYPES` | lista MIME por defecto; se puede sustituir con una lista separada por comas |
 
+## Los argumentos de las tools, también escritos
+
+Los argumentos de las tools se pueden entregar en su tipo o escritos, y el
+servidor entiende las dos formas:
+
+| Argumento | Formas |
+| --- | --- |
+| `uids` (`mark_read`, `mark_unread`, `prepare_delete`) | `[21055, 21051]`, `["21055", "21051"]`, `"[21055,21051]"`, `"21055,21051"`, `"21055"` |
+| `uid`, `index`, `limit`, `max_chars` | `20` o `"20"` |
+| `unseen`, `permanent` | `true`/`false` o `"true"`/`"false"`/`"1"`/`"0"` |
+| `to`, `cc`, `bcc` | `["ana@example.com"]` o `"ana@example.com"` |
+| `attachments` | `[{"filename": "nota.txt", ...}]` o su texto JSON |
+
+**Por qué hace falta.** El puente MCP de OpenMausBot, el que usa el equipo
+de correo, valida los argumentos de cada tool contra el esquema que publica
+el servidor, con Ajv **sin coerción**
+(`server/mcp-schema-validator.ts` en `milind-soni/OpenMausBot`). Un
+argumento que llega como texto —porque el modelo lo escribió como texto, o
+porque el puente lo convirtió— se rechaza allí con «must be integer» o
+«must be boolean», y **la llamada no sale del puente**: el servidor ni la ve.
+Con las formas escritas, esa llamada llega y se hace.
+
+Por la vía genérica de MCP (`mcp_call_tool`) el puente convierte a texto
+**todo** argumento que no sea texto: los números, los booleanos y también
+los números que van dentro de un arreglo (`uids: [21055]` llega como
+`["21055"]`, y el validador lo rechaza con «uids.0: must be integer»).
+Por eso el esquema declara las dos formas de cada tipo, y no solo la
+textual de los números: un `unseen: true` que llega como `"true"` también
+tiene que pasar el filtro del puente.
+
+El puente de las apps conectadas sí ajusta los tipos
+(`server/connector-arguments.ts`); el de las tools de MCP no. La corrección
+de raíz es de ese puente, no de aquí: si el validador coerced, el servidor
+recibiría el `20` como número y esta tolerancia no haría falta. Está
+reportada aparte.
+
+Un valor que no se entiende no se descarta: se rechaza con un error que
+dice qué se recibió. Un uid que se pierde es un correo que el agente
+creía haber marcado y que sigue sin marcar, y eso no se ve.
+
 ## Docker y despliegue
 
 `.env.example` documenta las opciones de Compose, rotación, Cloudflare Tunnel
