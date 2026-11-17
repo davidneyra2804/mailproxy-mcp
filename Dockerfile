@@ -28,11 +28,11 @@ COPY --chown=mcp:mcp docker/rotate_audit.py docker/healthcheck.py /app/docker/
 USER mcp
 
 # La etiqueta tiene que coincidir con version.py. Un test lo comprueba.
-ARG MCP_VERSION=2.3.0
+ARG MCP_VERSION=2.4.0
 LABEL org.opencontainers.image.version="${MCP_VERSION}" \
-      org.opencontainers.image.title="mcp-correo" \
+      org.opencontainers.image.title="mailproxy-mcp" \
       org.opencontainers.image.description="Servidor MCP de correo sobre IMAP y SMTP" \
-      org.opencontainers.image.source="https://github.com/davidneyra2804/mcp-correo" \
+      org.opencontainers.image.source="https://github.com/davidneyra2804/mailproxy-mcp" \
       org.opencontainers.image.licenses="MIT"
 
 ENV PATH=/opt/venv/bin:$PATH \

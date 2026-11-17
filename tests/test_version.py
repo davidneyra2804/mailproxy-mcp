@@ -109,7 +109,7 @@ def test_el_banner_de_arranque_se_ve(tmp_path: Path) -> None:
     salida = completed.stdout + completed.stderr
     assert "Servidor listo:" in salida, salida
     assert "Configuración: " in salida, salida
-    assert f"mcp-correo {__version__}" in salida, salida
+    assert f"mailproxy-mcp {__version__}" in salida, salida
     # Con el prefijo de nivel, como los de uvicorn.
     assert "INFO     Servidor listo:" in salida, salida
 

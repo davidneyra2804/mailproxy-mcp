@@ -26,7 +26,7 @@ os.environ.setdefault(
     "MCP_BEARER_TOKEN",
     "token-de-prueba-no-real-0123456789abcdef",
 )
-os.environ.setdefault("MCP_AUDIT_LOG", "/tmp/mcp-correo-test-audit.jsonl")
+os.environ.setdefault("MCP_AUDIT_LOG", "/tmp/mailproxy-mcp-test-audit.jsonl")
 os.environ.setdefault("MCP_BIND_HOST", "127.0.0.1")
 
 # El panel y la base de datos siempre están. En los tests, en un fichero
@@ -35,6 +35,6 @@ os.environ.setdefault("MCP_DASHBOARD_KEY", "clave-de-prueba-0123456789abcdef")
 os.environ.setdefault("MCP_DASHBOARD_TOKEN", "token-del-panel-0123456789abcdef")
 os.environ.setdefault(
     "MCP_DASHBOARD_DB",
-    str(Path(tempfile.gettempdir()) / "mcp-correo-test-cuentas.db"),
+    str(Path(tempfile.gettempdir()) / "mailproxy-mcp-test-cuentas.db"),
 )
 os.environ.setdefault("MCP_DASHBOARD_BIND_PORT", str(_puerto_libre()))

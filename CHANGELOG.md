@@ -1,11 +1,58 @@
 # Changelog
 
-Todas las novedades de mcp-correo.
+Todas las novedades de mailproxy-mcp.
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 el versionado es [SemVer](https://semver.org/lang/es/).
 
 ## [No publicado]
+
+## [2.4.0] — 2026-11-17
+
+El repositorio se llama `mailproxy-mcp`. Antes se llamaba `mcp-correo`, y el
+nombre estaba en el sitio equivocado: el proyecto no es solo de correo
+corporativo, sino un servidor MCP de buzones que se despliega como un proxy
+de correo. Con el nombre nuevo, el repositorio y la imagen dicen lo mismo
+que el servicio al que dan acceso.
+
+### Changed
+
+- **El repositorio, el paquete de Python y el servidor MCP se llaman
+  `mailproxy-mcp`.** El nombre del servidor en el handshake MCP cambia de
+  `mcp-correo` a `mailproxy-mcp`. A los clientes que lo apuntan por URL no
+  les afecta: el nombre solo se reenvía en el `initialize`.
+
+- **La imagen se publica en otra ruta de GHCR.** La imagen se construye como
+  `ghcr.io/${{ github.repository }}`, así que el paquete del registro es el
+  del repositorio, y **GHCR no renombra los paquetes ni admite
+  redirecciones**. Las versiones hasta la 2.3.0 siguen en
+  `ghcr.io/davidneyra2804/mcp-correo:<versión>`, tal cual; la 2.4.0 y las
+  siguientes salen en `ghcr.io/davidneyra2804/mailproxy-mcp:<versión>`. Si
+  tienes `MCP_IMAGE` fijado a la ruta vieja, sigue funcionando: la imagen
+  no se mueve. Para cambiar hay que actualizar la variable y redesplegar.
+
+### Removed
+
+- **El nombre `mcp-correo` desaparece del código, la documentación y el
+  despliegue**: en el nombre del paquete de Python, el del servidor MCP, los
+  nombres de contenedor, la unidad de systemd (`deploy/mailproxy-mcp.service`)
+  y las rutas del despliegue con systemd (`/opt/mailproxy-mcp`,
+  `/etc/mailproxy-mcp`).
+
+### Fixed
+
+- **Los datos no se tocan.** Tres cosas conservan el nombre anterior a
+  propósito, porque tocarlas rompe una instalación en marcha:
+
+  - La sal y el `info` de HKDF en `store/crypto.py`: derivan la clave con la
+    que se cifran las contraseñas de las cuentas. Cambiarlos deja la base
+    sin descifrar.
+  - El marcador `KEY_CHECK_PLAINTEXT` de `store/store.py` y `store/db.py`:
+    es el valor cifrado que comprueba que la clave del panel es la de esta
+    base.
+  - Las rutas `/var/lib/mcp-correo` y `/var/log/mcp-correo`: son los puntos
+    de montaje de los volúmenes Docker. Si cambian, el contenedor arranca
+    con una base vacía y el panel mostraría cero cuentas.
 
 ## [2.3.0] — 2026-11-17
 
@@ -569,7 +616,7 @@ Correcciones de una auditoría completa del proyecto.
   `CADDY_*`, `CLOUDFLARED_VERSION`.
 - El nginx del despliegue con systemd no servía las rutas por cuenta.
 
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.2] — 2026-10-26
 
 ### Corregido
@@ -587,8 +634,8 @@ Correcciones de una auditoría completa del proyecto.
 - Otra comprueba que la lista de módulos que la app importa coincide con la
   del `COPY`.
 
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.3] — 2026-10-26
 
 ### Corregido
@@ -607,9 +654,9 @@ Correcciones de una auditoría completa del proyecto.
 - Una comprueba que solo el servicio del servidor hereda el `HEALTHCHECK` de
   la imagen: los demás tienen que desactivarlo.
 
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.4] — 2026-10-26
 
 ### Corregido
@@ -630,10 +677,10 @@ Correcciones de una auditoría completa del proyecto.
 - El aviso de arranque salta cuando el host público se queda fuera de la
   lista, y no salta cuando está dentro.
 
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.5] — 2026-10-26
 
 ### Diagnóstico
@@ -646,11 +693,11 @@ Correcciones de una auditoría completa del proyecto.
 - **La respuesta del 421 incluye el `Host` recibido.** El llamante ya conoce
   el suyo, y es la pista que faltaba.
 
-[1.0.5]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.5
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.6] — 2026-10-26
 
 ### Diagnóstico
@@ -669,12 +716,12 @@ Correcciones de una auditoría completa del proyecto.
 - `list_accounts` documenta que `can_send`, `can_mark`, `can_delete` y
   `can_draft` reflejan las dos puertas.
 
-[1.0.6]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.6
-[1.0.5]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.5
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
+[1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.7] — 2026-10-26
 
 ### Corregido
@@ -698,13 +745,13 @@ Correcciones de una auditoría completa del proyecto.
 - Las rutas por cuenta y el argumento opcional, explicados en el README y en
   la guía de configuración.
 
-[1.0.7]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.7
-[1.0.6]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.6
-[1.0.5]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.5
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.7]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.7
+[1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
+[1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.8] — 2026-10-26
 
 ### Corregido
@@ -720,14 +767,14 @@ Correcciones de una auditoría completa del proyecto.
            en la cuenta (por ejemplo, MCP_ACCOUNT_ALLOW_MARK_1=true)
   ```
 
-[1.0.8]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.8
-[1.0.7]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.7
-[1.0.6]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.6
-[1.0.5]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.5
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.8]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.8
+[1.0.7]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.7
+[1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
+[1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.9] — 2026-10-26
 
 ### Cambiado
@@ -760,15 +807,15 @@ Correcciones de una auditoría completa del proyecto.
   capacidad puede estar apagada: que falte el global, o que todas las
   cuentas la tengan en `false`.
 
-[1.0.9]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.9
-[1.0.8]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.8
-[1.0.7]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.7
-[1.0.6]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.6
-[1.0.5]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.5
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
+[1.0.9]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.9
+[1.0.8]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.8
+[1.0.7]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.7
+[1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
+[1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.1.0] — 2026-10-26
 
 ### Añadido
@@ -795,17 +842,17 @@ Correcciones de una auditoría completa del proyecto.
 - `SENDER` en la lista de campos de cuenta, en el `.env.example` y en el
   ejemplo de `accounts.toml`.
 
-[1.1.0]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.1.0
-[1.0.9]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.9
-[1.0.8]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.8
-[1.0.7]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.7
-[1.0.6]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.6
-[1.0.5]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.5
-[1.0.4]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.4
-[1.0.3]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.3
-[1.0.2]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.2
-[1.0.1]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.1
-[1.0.0]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v1.0.0
+[1.1.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.1.0
+[1.0.9]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.9
+[1.0.8]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.8
+[1.0.7]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.7
+[1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
+[1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
+[1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
+[1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
+[1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
+[1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
+[1.0.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.0
 
 ## [2.0.0] — 2026-10-26
 
@@ -899,4 +946,5 @@ cambia**, y por eso es una versión mayor.
 - La base de datos va en un volumen. Sin él, el contenedor es de solo
   lectura y las cuentas se pierden en cada reinicio.
 
-[2.0.0]: https://github.com/davidneyra2804/mcp-correo/releases/tag/v2.0.0
+[2.4.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.4.0
+[2.0.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.0.0

@@ -20,7 +20,7 @@
 
 services:
   caddy:
-    container_name: mcp-correo-caddy
+    container_name: mailproxy-mcp-caddy
     image: caddy:2-alpine
     pull_policy: missing
     restart: unless-stopped

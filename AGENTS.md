@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Directivas para trabajar en **mcp-correo**. Léelo antes de tocar nada.
+Directivas para trabajar en **mailproxy-mcp**. Léelo antes de tocar nada.
 
 ## Qué es
 
@@ -13,7 +13,7 @@ El despliegue de referencia es **Portainer + Cloudflare Tunnel**, con toda la
 configuración en variables de entorno.
 
 ```
-Cliente MCP ──HTTPS──▶ Cloudflare ──▶ cloudflared ──▶ mcp-correo ──▶ IMAP/SMTP
+Cliente MCP ──HTTPS──▶ Cloudflare ──▶ cloudflared ──▶ mailproxy-mcp ──▶ IMAP/SMTP
 ```
 
 ## Las directivas
@@ -439,13 +439,13 @@ Cada una de estas costó una release rota.
 La versión vive en `version.py`. Para subir una:
 
 ```bash
-sed -i 's/__version__ = ".*"/__version__ = "2.3.1"/' version.py
-sed -i 's/^version = ".*"/version = "2.3.1"/' pyproject.toml
-sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.3.1/' Dockerfile
-sed -i 's/mcp-correo 2\.3\.0 |/mcp-correo 2.3.1 |/' docs/configuracion.md
-sed -i 's|mcp-correo:2\.3\.0|mcp-correo:2.3.1|' README.md
-git commit -am "version 2.3.1"
-git tag v2.3.1 && git push origin v2.3.1
+sed -i 's/__version__ = ".*"/__version__ = "2.4.1"/' version.py
+sed -i 's/^version = ".*"/version = "2.4.1"/' pyproject.toml
+sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.4.1/' Dockerfile
+sed -i 's/mailproxy-mcp 2\.4\.0 |/mailproxy-mcp 2.4.1 |/' docs/configuracion.md
+sed -i 's|mailproxy-mcp:2\.4\.0|mailproxy-mcp:2.4.1|' README.md
+git commit -am "version 2.4.1"
+git tag v2.4.1 && git push origin v2.4.1
 ```
 
 Los `sed` de la documentación no son opcionales: hay un test que
@@ -453,7 +453,7 @@ comprueba que la documentación no habla de una versión vieja. El patrón es
 la versión **actual**, así que hay que cambiarlo en cada subida.
 
 Cada `sed` tiene que tener **algo que sustituir**. La firma
-`mcp-correo X.Y.Z |` solo está en `docs/configuracion.md`: si un `sed`
+`mailproxy-mcp X.Y.Z |` solo está en `docs/configuracion.md`: si un `sed`
 la busca en un fichero donde no existe, no cambia nada y parece que sí.
 
 En macOS, `sed -i` necesita el sufijo vacío: `sed -i '' 's/.../.../'`. Sin
@@ -482,7 +482,25 @@ La v2.0.1 se publicó así (2026-10-28): commit `bc2657b`, etiqueta `v2.0.1`,
 imagen en `ghcr.io/davidneyra2804/mcp-correo:2.0.1` y `latest`. Se publicó
 **sin Docker en la máquina**, así que la imagen no se ha arrancado ni probado
 en local. La v2.0.0 se publicó así (2026-10-27): commit `d7ebf0c`, etiqueta
-`v2.0.0`, imagen en `ghcr.io/davidneyra2804/mcp-correo:2.0.0` y `latest`. **La
+`v2.0.0`, imagen en `ghcr.io/davidneyra2804/mcp-correo:2.0.0` y `latest`.
+
+**El repositorio se renombró a `mailproxy-mcp` el 2026-11-17.** La imagen se
+construye como `ghcr.io/${{ github.repository }}`, así que el nombre del
+paquete en el registro es el del repositorio: **las versiones anteriores a
+la 2.4.0 siguen en `ghcr.io/davidneyra2804/mcp-correo`**, que no se renombra
+ni admite redirecciones. La 2.4.0 y las siguientes salen en
+`ghcr.io/davidneyra2804/mailproxy-mcp`. Quien tenga fijado un `MCP_IMAGE`
+con la ruta vieja sigue tirando de la imagen vieja, que no se mueve: para
+cambiar hay que actualizar la variable y redesplegar.
+
+Lo que **no** se renombró, a propósito: la sal y el `info` de HKDF en
+`store/crypto.py`, el marcador `KEY_CHECK_PLAINTEXT` de `store/store.py` y
+`store/db.py`, y las rutas `/var/lib/mcp-correo` y `/var/log/mcp-correo`.
+Los tres primeros derivan o comprueban la clave con la que se cifran las
+contraseñas de las cuentas: renombrarlos dejaría la base de una instalación
+en marcha sin descifrar. Las rutas son las de los volúmenes Docker: si
+cambian, el contenedor arranca con una base vacía. **La**
+
 imagen sale solo para `linux/amd64`**: el workflow no lleva `setup-qemu` ni
 `platforms`, así que en un host arm64 hay que construirse en local o añadir
 multi-arch al workflow.

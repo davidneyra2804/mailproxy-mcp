@@ -113,8 +113,8 @@ loopback y sirve para depurar con `curl` desde el host. Si prefieres que no
 exista en absoluto, quita el bloque `ports:` del servicio `mcp` en
 `docker-compose.yml`.
 
-Los contenedores quedan con nombre fijo: `mcp-correo` y
-`mcp-correo-cloudflared`.
+Los contenedores quedan con nombre fijo: `mailproxy-mcp` y
+`mailproxy-mcp-cloudflared`.
 
 ### La cabecera Host
 

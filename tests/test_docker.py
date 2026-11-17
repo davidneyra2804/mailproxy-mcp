@@ -344,7 +344,7 @@ def test_el_compose_publica_solo_loopback_y_no_lleva_secretos() -> None:
     assert "profiles:" not in text
     assert "caddy" not in text
     assert "traefik.enable" in text
-    assert "mcp-correo:local" in text
+    assert "mailproxy-mcp:local" in text
     assert "pull_policy: ${MCP_PULL_POLICY:-build}" in text
     assert "pull_policy: ${MCP_PULL_POLICY:-never}" in text
     assert text.count("dockerfile: Dockerfile") == 1
@@ -358,9 +358,12 @@ def test_el_compose_publica_solo_loopback_y_no_lleva_secretos() -> None:
 def test_cada_servicio_tiene_container_name() -> None:
     """Nombres estables: en Portainer se ven en Containers y en los logs."""
     esperados = {
-        "docker-compose.yml": {"mcp": "mcp-correo", "audit-rotate": "mcp-correo-audit-rotate"},
-        "docker-compose.tunnel.yml": {"cloudflared": "mcp-correo-cloudflared"},
-        "docker-compose.proxy.yml": {"caddy": "mcp-correo-caddy"},
+        "docker-compose.yml": {
+            "mcp": "mailproxy-mcp",
+            "audit-rotate": "mailproxy-mcp-audit-rotate",
+        },
+        "docker-compose.tunnel.yml": {"cloudflared": "mailproxy-mcp-cloudflared"},
+        "docker-compose.proxy.yml": {"caddy": "mailproxy-mcp-caddy"},
     }
     for nombre, servicios in esperados.items():
         compose = yaml.safe_load((ROOT / nombre).read_text(encoding="utf-8"))
