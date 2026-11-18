@@ -1,0 +1,41 @@
+name: bump-version
+
+# Temporary helper for the 2.5.0 release: it applies the version bump to the
+# release branch and then deletes itself, so it never reaches main. The
+# publishing procedure itself is the one documented in README.md and
+# AGENTS.md; this only runs it.
+
+on:
+  push:
+    branches: ["release/2.5.0"]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/2.5.0
+
+      - name: Apply the version bump
+        run: python3 .github/bump_version.py
+
+      - name: Show what changed
+        run: git diff --stat
+
+      - name: Remove the helper
+        run: rm -f .github/bump_version.py .github/workflows/bump-version.yml
+
+      - name: Commit
+        run: |
+          git config user.name "David Neyra"
+          git config user.email "davidneyra2804@gmail.com"
+          git add -A
+          git commit -m "release: version 2.5.0" \
+            -m "The documentation is now in English: the README, AGENTS.md, this CHANGELOG, the guides under docs/ and the deployment layer. This release publishes the English documentation as the image and as the GitHub Release." \
+            -m "The version goes to 2.5.0 in version.py, pyproject.toml, the image label and the two places in the documentation that name it. The publishing block in README.md and in AGENTS.md now points to 2.5.0 and publishes 2.6.0, and both blocks stay identical, as the tests require." \
+            -m "386 tests pass, ruff check and ruff format pass, and the smoke test ends in OK. The image was not started: there is no Docker on this machine. tests/test_docker.py simulates the COPY of the Dockerfile and starts the server from the copy."
+          git push origin release/2.5.0
