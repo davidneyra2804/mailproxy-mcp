@@ -494,7 +494,7 @@ and add the tunnel overlay under *Additional paths*.
 Use the published image without rebuilding:
 
 ```
-MCP_IMAGE=ghcr.io/davidneyra2804/mailproxy-mcp:2.4.0
+MCP_IMAGE=ghcr.io/davidneyra2804/mailproxy-mcp:2.5.0
 MCP_PULL_POLICY=always
 ```
 
@@ -650,13 +650,13 @@ matching changelog entry.
 
 ```bash
 # Publish a version
-sed -i 's/__version__ = ".*"/__version__ = "2.4.1"/' version.py
-sed -i 's/^version = ".*"/version = "2.4.1"/' pyproject.toml
-sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.4.1/' Dockerfile
-sed -i 's/mailproxy-mcp 2\.4\.0 |/mailproxy-mcp 2.4.1 |/' docs/configuration.md
-sed -i 's|mailproxy-mcp:2\.4\.0|mailproxy-mcp:2.4.1|' README.md
-git commit -am "version 2.4.1"
-git tag v2.4.1 && git push origin v2.4.1
+sed -i 's/__version__ = ".*"/__version__ = "2.6.0"/' version.py
+sed -i 's/^version = ".*"/version = "2.6.0"/' pyproject.toml
+sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.6.0/' Dockerfile
+sed -i 's/mailproxy-mcp 2\.5\.0 |/mailproxy-mcp 2.6.0 |/' docs/configuration.md
+sed -i 's|mailproxy-mcp:2\.5\.0|mailproxy-mcp:2.6.0|' README.md
+git commit -am "version 2.6.0"
+git tag v2.6.0 && git push origin v2.6.0
 ```
 
 The final two `sed` commands are required. Tests check that the documentation

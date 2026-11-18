@@ -7,6 +7,44 @@ versioning follows [SemVer](https://semver.org/lang/en/).
 
 ## [Unpublished]
 
+## [2.5.0] — 2026-11-18
+
+The documentation is now in English. The project is published for a wider
+audience, and the docs were the last part still written in Spanish.
+
+### Changed
+
+- **The whole documentation is in English**: the README, `AGENTS.md`, this
+  CHANGELOG, the guides under `docs/` and the deployment layer (the Compose
+  files, `deploy/`, the workflows, the `Dockerfile` and `.env.example`).
+
+- **The guides under `docs/` have English file names now.** `configuracion.md`
+  is `configuration.md`, `despliegue-portainer.md` is
+  `deployment-portainer.md`, `despliegue-systemd.md` is
+  `deployment-systemd.md`, `despliegue-tunel-cloudflare.md` is
+  `deployment-cloudflare-tunnel.md`, `seguridad.md` is `security.md`,
+  `validacion-visual-vyra25.md` is `visual-validation-vyra25.md` and
+  `validacion-visual-vyra34.md` is `visual-validation-vyra34.md`. The
+  screenshots moved to `docs/screenshots-vyra34/`. The links inside the
+  repository were updated, but a link from outside to the old names no
+  longer resolves.
+
+- **The tests check the English wording.** They used to look for Spanish
+  sentences, so after the translation they would have passed for the wrong
+  reason. Each one now checks the English text with the same strength:
+  putting a line back in Spanish makes the test fail.
+
+### Unchanged
+
+- **The runtime logs stay in Spanish** ("Servidor listo:", "Configuración:").
+  They are runtime output and they are quoted verbatim in this CHANGELOG.
+
+- **The encrypted data is not affected.** The HKDF salt, the
+  `KEY_CHECK_PLAINTEXT` marker and the `/var/lib/mcp-correo` and
+  `/var/log/mcp-correo` paths keep their names on purpose: changing them
+  would leave the database undecryptable or empty.
+
+
 ## [2.4.0] — 2026-11-17
 
 The repository is named `mailproxy-mcp`. It used to be called `mcp-correo`, and the
@@ -695,5 +733,6 @@ changes**, which is why this is a major version.
 - The database lives on a volume. Without it, the container is read-only and
   accounts are lost on every restart.
 
+[2.5.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.5.0
 [2.4.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.4.0
 [2.0.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.0.0
