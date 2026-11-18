@@ -77,4 +77,4 @@ A value that cannot be understood is not discarded: it is rejected with an error
 `.env.example` documents the Compose options, rotation, Cloudflare Tunnel, and Caddy. Copy the example to `.env` and replace the dummy secrets. The compose file publishes the MCP and the panel on loopback and mounts the volumes `data` and `audit`. For remote deployment, see [Portainer](deployment-portainer.md) and [Cloudflare Tunnel](deployment-cloudflare-tunnel.md).
 
 ---
-mailproxy-mcp 2.4.0 | [Home](../README.md)
+mailproxy-mcp 2.5.0 | [Home](../README.md)
