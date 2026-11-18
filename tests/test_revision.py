@@ -213,7 +213,7 @@ def test_la_revision_tiene_presupuesto_de_tiempo() -> None:
     prompt = _plano(PROMPT.read_text(encoding="utf-8"))
     agente = _plano(AGENTE.read_text(encoding="utf-8"))
     for nombre, texto in (("la skill", skill), ("el prompt", prompt), ("el agente", agente)):
-        assert "10 minutos" in texto or "diez minutos" in texto, (
+        assert "10 minutes" in texto or "ten minutes" in texto, (
             f"{nombre} no dice cuál es el presupuesto de tiempo"
         )
 
@@ -231,19 +231,30 @@ def test_el_revisor_no_clona_ni_instala() -> None:
         ("el prompt", _plano(PROMPT.read_text(encoding="utf-8"))),
         ("el agente", _plano(AGENTE.read_text(encoding="utf-8"))),
     ):
-        assert any(frase in texto for frase in ("no clones", "no clonas", "no hagas un clon")), (
-            f"{nombre} no prohíbe clonar"
-        )
         assert any(
             frase in texto
-            for frase in ("no instales nada", "no instales", "ni instales nada", "no instalar")
+            for frase in ("do not clone", "do not clone the repository", "do not create")
+        ), f"{nombre} no prohíbe clonar"
+        assert any(
+            frase in texto
+            for frase in (
+                "do not install",
+                "install anything",
+                "install dependencies",
+                "do not create a virtual environment",
+                "create virtual environments",
+            )
         ), f"{nombre} no prohíbe instalar"
-        assert any(frase in texto for frase in ("no montes arneses", "no montas arneses")), (
-            f"{nombre} no prohíbe los arneses"
-        )
         assert any(
             frase in texto
-            for frase in ("no investigues la plataforma", "no investigas la plataforma")
+            for frase in (
+                "do not write scripts",
+                "without writing mutation or verification scripts",
+            )
+        ), f"{nombre} no prohíbe los arneses"
+        assert any(
+            frase in texto
+            for frase in ("keep platform research out of scope", "platform research is outside")
         ), f"{nombre} no prohíbe investigar la plataforma"
 
 
@@ -260,10 +271,10 @@ def test_las_mutaciones_las_hace_el_agente_principal() -> None:
     """
     skill = _plano(SKILL.read_text(encoding="utf-8"))
     agentes_md = _plano((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
-    assert "el agente principal hace las mutaciones" in skill, (
+    assert "the primary agent performs mutations" in skill, (
         "La skill no dice, en el presupuesto, que las mutaciones las hace el agente principal"
     )
-    assert "las mutaciones las hace el agente principal" in agentes_md, (
+    assert "the primary agent performs mutations" in agentes_md, (
         "El AGENTS.md no dice que las mutaciones las hace el agente principal"
     )
 
@@ -283,7 +294,7 @@ def test_el_clon_limpio_lo_hace_el_agente_principal() -> None:
     """
     skill = _plano(SKILL.read_text(encoding="utf-8"))
     agentes_md = _plano((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
-    assert "clon limpio" in skill, "La skill no habla del clon limpio"
+    assert "clean clone" in skill, "La skill no habla del clon limpio"
     assert "git clone" in skill, "La skill no dice cómo se hace el clon limpio"
     assert "git apply --index" in skill, (
         "La skill no aplica el diff en el clon: el clon validaría el código "
@@ -294,7 +305,7 @@ def test_el_clon_limpio_lo_hace_el_agente_principal() -> None:
         "El AGENTS.md no aplica el diff en el clon: es el fichero que se "
         "inyecta en cada sesión, y ahí el control se pierde"
     )
-    assert "si el `git apply` falla" in agentes_md or "si el git apply falla" in agentes_md, (
+    assert "failed `git apply`" in agentes_md or "failed git apply" in agentes_md, (
         "El AGENTS.md no avisa de que un `git apply` fallido invalida el control"
     )
     # Y el prompt del revisor no le pide clonar: lo prohíbe (para eso se
@@ -302,11 +313,10 @@ def test_el_clon_limpio_lo_hace_el_agente_principal() -> None:
     # prohibición: una lista de literales negativos se deja reventar con
     # una frase ("Crea un clon del repositorio...").
     prompt = _plano(PROMPT.read_text(encoding="utf-8"))
-    assert "no clones" in prompt, "El prompt no le prohíbe clonar al revisor"
+    assert "do not clone" in prompt, "El prompt no le prohíbe clonar al revisor"
     for mencion in re.findall(r"[^.]*clon[^.]*\.", prompt):
         prohibicion = any(
-            frase in mencion
-            for frase in ("no clones", "no hagas", "no ejecutes", "no creas", "no clones")
+            frase in mencion for frase in ("do not clone", "do not", "do not run", "do not create")
         )
         assert prohibicion, f"El prompt menciona el clon fuera de la prohibición: {mencion!r}"
 
@@ -437,10 +447,10 @@ def test_la_repeticion_no_es_automatica() -> None:
     """
     skill = _plano(SKILL.read_text(encoding="utf-8"))
     agentes_md = _plano((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
-    assert "no es un ciclo" in skill, "La skill no dice que una revisión no es un ciclo"
+    assert "not a cycle" in skill, "La skill no dice que una revisión no es un ciclo"
     assert "decides" in skill or "decide" in skill, "La skill no deja decidir al agente"
-    assert "no es un ciclo" in agentes_md, "El AGENTS.md no dice que no es un ciclo"
-    assert "repite" in agentes_md, "El AGENTS.md no menciona la repetición"
+    assert "not a cycle" in agentes_md, "El AGENTS.md no dice que no es un ciclo"
+    assert "repeat" in agentes_md, "El AGENTS.md no menciona la repetición"
 
 
 # --- coherencia con el AGENTS.md ------------------------------------------------
@@ -455,7 +465,7 @@ def test_el_agents_md_exige_la_revision() -> None:
     """
     texto = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "revision" in texto, "El AGENTS.md no menciona la skill de revisión"
-    assert "antes del commit" in texto, "El AGENTS.md no dice cuándo se pasa"
+    assert "before committing" in texto, "El AGENTS.md no dice cuándo se pasa"
 
 
 def _plano(texto: str) -> str:
@@ -480,18 +490,18 @@ def test_la_skill_y_el_agents_md_no_se_contradicen() -> None:
     skill = _plano(SKILL.read_text(encoding="utf-8"))
     agentes = _plano((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
     # Los dos tienen que exigirla.
-    assert "antes del commit" in skill
-    assert "antes del commit" in agentes
+    assert "before committing" in skill
+    assert "before committing" in agentes
     # Y los dos tienen que decir que no es opcional. Se busca la frase
-    # entera, no la palabra "opcional": esta aparece con otros sentidos
+    # entera, no la palabra "optional": esta aparece con otros sentidos
     # (por ejemplo, una skill auxiliar que es opcional).
     for nombre, texto in (("la skill", skill), ("el AGENTS.md", agentes)):
-        assert "no es opcional" in texto, f"{nombre} no dice que es obligatoria"
-        for frase in ("la revisión es opcional", "puedes saltarte la revisión"):
+        assert "not optional" in texto, f"{nombre} no dice que es obligatoria"
+        for frase in ("the review is optional", "you can skip the review"):
             assert frase not in texto, f"{nombre} dice '{frase}': se contradice."
     # La excepción de lo trivial tiene que estar en los dos, y ser la misma.
-    assert "un texto" in skill
-    assert "un texto" in agentes
+    assert "prose" in skill
+    assert "prose" in agentes
 
 
 # --- el texto -------------------------------------------------------------------

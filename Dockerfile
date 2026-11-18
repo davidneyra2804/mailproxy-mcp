@@ -1,5 +1,5 @@
-# Imagen para Portainer. No incluye tokens ni contraseñas.
-# Un solo worker: los tokens de confirmación y el cupo diario viven en memoria.
+# Image for Portainer. It contains no tokens and no passwords.
+# A single worker: the confirmation tokens and the daily quota live in memory.
 
 FROM python:3.12-slim AS build
 
@@ -27,11 +27,11 @@ COPY --chown=mcp:mcp docker/rotate_audit.py docker/healthcheck.py /app/docker/
 
 USER mcp
 
-# La etiqueta tiene que coincidir con version.py. Un test lo comprueba.
+# The label has to match version.py. A test checks it.
 ARG MCP_VERSION=2.4.0
 LABEL org.opencontainers.image.version="${MCP_VERSION}" \
       org.opencontainers.image.title="mailproxy-mcp" \
-      org.opencontainers.image.description="Servidor MCP de correo sobre IMAP y SMTP" \
+      org.opencontainers.image.description="Mail MCP server over IMAP and SMTP" \
       org.opencontainers.image.source="https://github.com/davidneyra2804/mailproxy-mcp" \
       org.opencontainers.image.licenses="MIT"
 
@@ -45,7 +45,7 @@ ENV PATH=/opt/venv/bin:$PATH \
     MCP_DASHBOARD_BIND_PORT=8766 \
     MCP_DASHBOARD_DB=/var/lib/mcp-correo/cuentas.db
 
-# 8765: el MCP. 8766: el panel de control.
+# 8765: the MCP server. 8766: the control panel.
 EXPOSE 8765 8766
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

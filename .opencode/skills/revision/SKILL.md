@@ -1,103 +1,83 @@
 ---
-name: Revisión
-description: "Auditar una implementación antes de darla por buena. Úsala al terminar cualquier cambio de código, antes del commit y del push: lanza un subagente revisor con contexto fresco que comprueba el cambio contra las validaciones que este proyecto ya pagó, y verifica sus hallazgos antes de arreglarlos."
+name: Review
+description: "Review an implementation after a code change and before committing or pushing. Start a reviewer with fresh context and the project's established checks, then verify its findings before applying fixes."
 metadata:
   opencode/autoinvoke: true
 ---
 
-# Revisión
+# Review
 
-Una implementación terminada no está buena hasta que alguien la mira con
-la cabeza fría. Este es el paso que faltaba: un revisor con **contexto
-limpio**, que no participó en la decisión, y una lista de
-comprobaciones que sale de la historia del proyecto.
+Use a reviewer with **fresh context** who did not take part in the
+implementation. The checks come from failures the project has encountered.
 
-**Este skill no arregla nada.** El revisor informa; el agente principal
-decide qué hacer con el informe. Un revisor que arregla se autoaproba.
+The reviewer reports findings. The primary agent decides how to handle them
+and applies any fixes. This preserves separation between author and reviewer.
 
-## Cuándo
+## When to run it
 
-La revisión **no es opcional**. Al terminar una implementación, **antes**
-del commit y del push, y también cuando el usuario pida una revisión, una
-segunda opinión o una auditoría.
+Review is **not optional**: run it after implementation and before committing
+or pushing.
+Run it also when the user requests a review, second opinion, or audit.
 
-Lo único que se salta es lo que no toca comportamiento (un comentario, un
-texto, un refactor sin efecto). Si toca el esquema de la base, la
-configuración, la superficie de las tools o la seguridad, **no**.
+Skip review for changes that leave behavior unchanged, such as comments,
+prose, or a behavior-preserving refactor. Schema, configuration, tool
+interface, and security changes require review.
 
-## El presupuesto
+## Time budget
 
-**Una revisión, y tiene que salir en menos de 10 minutos.**
+**Run one review and complete it in under 10 minutes.**
 
-Esto no es arbitrario: las primeras revisiones tardaron entre 5 y 66
-minutos, y el tiempo no se iba en revisar, se iba en **verificar de más**:
-clonar, instalar un entorno de cero, construir arneses de pruebas de
-mutación e investigar la plataforma. Todo eso lo hace mejor el agente
-principal, en segundos.
+Early reviews took between 5 and 66 minutes. Cloning, installing a new
+environment, building mutation harnesses, and researching the platform
+accounted for most of that time. The primary agent already has the
+environment for any needed checks.
 
-De ahí las tres reglas, y no son negociables:
+1. **The reviewer works in the existing tree.** It already contains the
+   change and dependencies. The reviewer skips cloning and installation.
+2. **The primary agent performs mutations.** If the reviewer questions a
+   test's coverage, temporarily revert the fix yourself and run the test.
+3. **Platform research is outside the review scope.** Record unclear
+   OpenCode behavior in the unverified section of the report.
 
-1. **El revisor no clona ni instala nada.** Trabaja en el árbol, que ya
-   tiene el cambio y las dependencias. El prompt se lo dice.
-2. **El agente principal hace las mutaciones.** Si el revisor dice que un
-   test no vigila lo que dice vigilar, lo compruebas **tú**, revirtiendo
-   el arreglo a mano. No le pidas que monte un arnés.
-3. **El revisor no investiga la plataforma.** Lo que no sepa de
-   OpenCode va a "Sin comprobar" y sigue.
+Run one review by default. If the reviewer identifies a critical defect,
+fix it and decide whether the new change warrants another pass.
 
-Y el bucle: **una revisión, no un ciclo**. Si el revisor encuentra algo
-crítico, lo arreglas y **decides tú** si mereces otra pasada. La
-repetición es tuya, no automática: repetir sin criterio es lo que se
-come el tiempo.
+## Workflow
 
-## El flujo
+### 1. Prepare the scope
 
-### 1. Prepara el alcance
-
-El diff es lo que se revisa, y tiene que llegar completo al revisor,
-**ficheros nuevos incluidos**:
+Give the reviewer the complete diff, including new files.
 
 ```bash
-git status --short          # 1. mira primero qué hay en el árbol
-git add -A                  # 2. mete todo en el índice
-# 3. QUITA del índice el trabajo a medias que no es de este cambio:
-#    git restore --staged <fichero>
-git diff --cached > /tmp/revision.diff   # 4. el diff, ya limpio
+git status --short          # 1. look first at what is in the tree
+git add -A                  # 2. stage everything
+# 3. REMOVE from the index the work in progress that is not part of this change:
+#    git restore --staged <file>
+git diff --cached > /tmp/revision.diff   # 4. the diff, clean
 git log --oneline -5
 ```
 
-El orden importa: `git restore --staged` va **antes** de escribir el
-diff. Si lo desindexas después, el diff ya lo lleva (comprobado: el
-fichero sigue en el diff).
+Run `git restore --staged` before writing the diff. Unstaging a file after
+export leaves it in the saved diff.
 
-`git add -A` deja el índice preparado (que es lo que hace falta para el
-commit) y hace que el diff incluya lo que no estaba versionado. Un
-revisor que no ve un fichero nuevo no puede revisarlo.
+`git add -A` prepares the index for the commit and includes new files in
+the staged diff. It stages the entire tree, which may include unrelated
+work in progress, notes, debugging files, or an unignored `.env`. Inspect
+`git status` and unstage unrelated files before exporting the diff.
 
-Ojo con el alcance: `git add -A` mete **todo** el árbol. Si hay trabajo
-a medias que no es de este cambio (un `.env` sin ignorar, notas, un
-fichero de depuración), entra en el diff y el revisor audita cosas que no
-son del cambio. Mira el `git status` del paso 1 y quítalo del índice antes
-de generar el diff.
+If the diff is empty and the change is already committed, supply that commit
+with `git show <sha>` in `{{DIFF}}` and the SHA in `{{COMMITS}}`. Save the
+`git show` output in `/tmp/revision.diff`, the path used in step 5.
 
-**Si el diff sale vacío**, no hay nada sin commitear: el cambio ya está
-en un commit, y lo que se revisa es ese commit. Pásale al revisor el
-`git show <sha>` de ese commit en `{{DIFF}}` y el sha en `{{COMMITS}}`. En
-ese caso, guarda también ese `git show` en `/tmp/revision.diff`: es el
-mismo fichero que aplica el paso 5.
+Regenerate the diff from the corrected tree before repeating a review.
 
-Si repitas la revisión, **vuelve a hacer este paso**: el diff se
-regenera sobre el árbol ya corregido.
+### 2. Run the checks and capture their output
 
-### 2. Corre las pruebas y prepasa el resultado
+The reviewer reads the supplied output and has no shell. A command allowlist
+would still let commands write through arguments such as `ruff check --fix`,
+`git diff --output=`, or `pytest --junit-xml=`.
 
-El revisor **no ejecuta nada**: no tiene shell. Una lista de comandos
-permitidos no es defendible, porque cualquier subcomando con un
-argumento de escritura la cuela (`ruff check --fix`,
-`git diff --output=`, `pytest --junit-xml=`...). Y no lo necesita: tú le
-pases la salida y él lee, razona y reporta.
-
-Corre los tests y el lint **antes** de lanzarlo, y guárdalo:
+Run and save tests and lint before starting the reviewer.
 
 ```bash
 {
@@ -113,105 +93,86 @@ Corre los tests y el lint **antes** de lanzarlo, y guárdalo:
 } > /tmp/revision-tests.txt 2>&1
 ```
 
-El `-ra` es para que aparezcan **qué** tests se saltaron y por qué: sin
-eso, el revisor solo ve el recuento y no puede atribuirlos al cambio.
+`-ra` gives the reviewer the identities and reasons for skipped tests,
+which helps determine whether the change caused any skips.
 
-Ojo: `ruff format .` **reescribe** los ficheros y `ruff check` pasa
-después. Para comprobar, el comando es `ruff format --check .`.
+`ruff format .` rewrites files and can mask a pre-existing formatting
+problem. Use `ruff format --check .` for verification.
 
-Si repites la revisión, **vuelve a hacer este paso**: la salida tiene
-que ser la del código corregido.
+Capture fresh output from the corrected code before repeating a review.
 
-### 3. Lanza al revisor
+### 3. Start the reviewer
 
-El revisor es un subagente con contexto fresco. El prompt completo está en
-`references/auditoria.md`, **relativo al directorio base de esta skill**:
-OpenCode inyecta esa ruta al cargar la skill, en una línea que empieza por
-`Base directory for this skill:`. Léelo con la herramienta de lectura
-(`read`), con esa ruta absoluta, y pásalo tal cual rellenando el alcance.
+The reviewer is a subagent with fresh context. Read the full prompt at
+`references/auditoria.md`, relative to this skill's base directory.
+OpenCode supplies that directory in a line beginning with
+`Base directory for this skill:`. Use the absolute path with `read` and
+fill the scope placeholders in the prompt. Resolving it from the
+repository root may fail when the session starts in a subdirectory.
 
-No uses una ruta fija desde la raíz del repo: la sesión puede estar
-abierta en un subdirectorio, y ahí esa ruta no existe.
+Start it with the `subagent` tool.
 
-Lánzalo con el tool `subagent`:
+- `agent`: `reviewer` (`.opencode/agents/reviewer.md`). This agent lacks
+  shell, edit, and subagent permissions.
+- `description` is `Review the implementation`.
+- `prompt` is the text of `references/auditoria.md` with five placeholders
+  filled in. Use `{{REPOSITORIO}}`, `{{DIFF}}`, `{{ALCANCE}}`, `{{COMMITS}}`,
+  and `{{SALIDA_PRUEBAS}}`. The last one points to the test and lint output
+  from step 2.
 
-- `agent`: `reviewer` (el agente del proyecto, `.opencode/agents/reviewer.md`).
-  No tiene shell, no puede editar y no puede lanzar subagentes.
-- `description`: `Auditar la implementación`
-- `prompt`: el de `references/auditoria.md`, con los cinco marcadores
-  rellenos: `{{REPOSITORIO}}`, `{{DIFF}}`, `{{ALCANCE}}`, `{{COMMITS}}` y
-  `{{SALIDA_PRUEBAS}}` (el fichero del paso 2, con los tests y el lint).
+`{{DIFF}}` and `{{SALIDA_PRUEBAS}}` take file paths, so the reviewer can
+open them with the read tool.
 
-  `{{DIFF}}` y `{{SALIDA_PRUEBAS}}` son **rutas de ficheros**, no su
-  contenido: el revisor no tiene shell, así que solo puede leerlos con la
-  herramienta de lectura.
+The `reviewer` sets the default model to MiniMax M3.1 Flash, as requested.
+Pass a model override through the tool if the user asks for a different one.
 
-Del modelo no te charges: lo fija el `reviewer` (MiniMax M3.1 Flash, que
-es lo que pidió el usuario). Si el usuario pide otro modelo, pásalo en el
-tool.
+The reviewer has no shell, and editing, writing, patching, subagent launches,
+and Code Mode are denied. It can use the existing tree without applying
+patches, reverting files, or installing dependencies. The read tool enforces
+secret protection.
 
-**El revisor no puede escribir en los ficheros del proyecto.** No tiene
-shell, y la edición, la escritura, el parcheo, el lanzamiento de
-subagentes y Code Mode están denegados. Por eso trabaja en tu árbol sin
-riesgo: no puede aplicar un parche, revertir un fichero ni instalar
-nada. Para leer ficheros usa la herramienta de lectura, que es la que
-respeta la protección de los secretos.
+OpenCode's own worktree and session management tools do not pass through
+these denials and do not edit project files.
 
-(Ojo: las tools propias de OpenCode —crear un worktree, mover la
-sesión— no pasan por esas denegaciones. No tocan los ficheros del
-proyecto, pero conviene saberlo.)
+### 4. Verify findings
 
-### 4. Verifica los hallazgos
+The reviewer can miss defects or report issues that cannot be reproduced.
+Verify each finding before acting.
 
-**No te creas al revisor.** Es otro modelo, con sus propios fallos: puede
-inventar un problema que no existe, o quedarse corto. Cada hallazgo se
-comprueba antes de actuar:
+- If a test allegedly fails, run it and inspect the failure.
+- If an `ALTER TABLE` is allegedly missing, inspect the migration.
+- If a test allegedly fails to cover a behavior, temporarily revert the fix
+  and confirm whether the test fails. A manual check is enough.
 
-- Si dice que un test falla, **ejecútalo** y mira el fallo.
-- Si dice que falta un `ALTER TABLE`, **mira el código** de la migración.
-- Si dice que un test no vigila lo que dice vigilar, **revierte el arreglo
-  tú** y mira si el test falla. Es un comando o dos; no hace falta un
-  arnés.
-Un hallazgo que no se puede reproducir no es un hallazgo: se descarta, y
-se dice al usuario que se descartó. Los confirmados se arreglan.
+Address confirmed defects and report any findings discarded after verification.
 
-### 5. Las dos comprobaciones que son tuyas
+### 5. Complete the primary agent's checks
 
-El revisor no hace estas dos, y el `AGENTS.md` las pide. Son las caras,
-y las haces tú en segundos porque ya tienes el entorno:
+`AGENTS.md` assigns both checks below to the primary agent.
 
-**a. El clon limpio.** No lo pide el revisor (clonar e instalar un entorno
-de cero es justo lo que costaba una hora). Lo haces tú, después de la
-revisión.
+**a. Verify in a clean clone.** Do this after review. A fresh clone and
+environment were a major source of review latency when the reviewer ran them.
 
-**Primero, regenera el diff**: el del paso 1 es el de *antes* de los
-arreglos, y el clon tiene que validar **el código que se va a
-fusionar**. Con el diff viejo, el clon valida el código anterior y da
-verde en falso.
+Regenerate the diff after fixes. The original diff predates them and can
+produce a false pass against the wrong code.
 
 ```bash
 git add -A
 git diff --cached > /tmp/revision.diff
 ```
 
-**El clon tiene que llevar el cambio**, y `git clone` sale del último
-commit. Hay dos casos:
+A clone starts at the latest commit. For uncommitted work, apply the diff
+with `--index` so the fictitious-data detector sees new tracked files. For
+committed work, clone the commit and omit the patch step.
 
-- El cambio **no** está commiteado (lo normal: la revisión es antes del
-  commit). Se aplica el diff dentro del clon, con `--index` para que los
-  ficheros nuevos queden versionados (si no, el detector de datos
-  ficticios no los mira).
-- El cambio **ya** está commiteado. El clon ya lo lleva: no se aplica
-  nada.
-
-Y el bloque **aborta si el `git apply` falla**, porque si no, los tests se
-corren contra el código anterior y el control no vale:
+Make a failed `git apply` stop the script. Otherwise the checks may run
+against the old code.
 
 ```bash
 set -e
 TMP=$(mktemp -d); git clone . "$TMP/ci"; cd "$TMP/ci"
-# Si el cambio no está commiteado, aplícalo (con --index).
-# Si ya lo está, el clon lo lleva: no apliques nada.
+# If the change is not committed, apply it (with --index).
+# If it already is, the clone carries it: do not apply anything.
 git apply --index /tmp/revision.diff
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
@@ -220,63 +181,53 @@ python3 -m venv .venv
 PYTHONSAFEPATH=1 .venv/bin/pytest
 ```
 
-Un "patch does not apply" significa que el clon ya lo llevaba, y un
-"can't open" que el fichero del diff no está donde se cree. Los dos
-casos hay que mirarlos, no pasarlos por alto.
+Investigate both a `patch does not apply` error, which can mean the clone
+already contains the change, and a `can't open` error, which indicates an
+incorrect diff path.
 
-**b. Que el test nuevo falla sin el arreglo.** Por cada test **nuevo** del
-cambio, revierte **solo el arreglo**, dejando el test, y mira que el test
-falla. Un test que no puede fallar no vigila nada, y el `AGENTS.md` lo
-dice desde hace tiempo.
+**b. Verify that each new test fails without the fix.** Temporarily revert
+only the fix, keep the new test, and run it. This confirms that the test
+detects the intended regression.
 
-El fallo tiene que ser **una aserción dentro del test**: si sale un
-`ImportError` o un `AttributeError`, el test no está midiendo lo que dice
-medir, y da igual que "falle". Y si sale "no tests ran", es que
-revertiste el test también, no el arreglo.
+Look for an assertion failure inside the test. An `ImportError` or
+`AttributeError` fails for a different reason. If pytest reports
+`no tests ran`, check whether you reverted the test itself.
 
-### 6. Decide si repites
+### 6. Decide whether to repeat the review
 
-**Una revisión no es un ciclo.** Si el revisor encontró algo crítico, lo
-arreglas y decides:
+**A review is not a cycle.** After fixing a critical finding, decide whether
+another pass is needed.
 
-- ¿El arreglo cambia el **comportamiento** o la **superficie**? Entonces
-  sí, otra revisión (con el diff regenerado).
-- ¿El arreglo es un ajuste de texto, un test o un detalle interno? No
-  hace falta otra revisión: verifícalo tú con los tests.
+- For a change to **behavior** or a **public interface**, regenerate the
+  diff and run another review.
+- For a prose edit, a test adjustment, or an internal detail, verify the
+  result with tests yourself.
 
-La revisión repetida se paga, y se paga en el tiempo de quien espera. El
-valor está en la **primera** pasada, que es la que mira el cambio con ojos
-nuevos.
+Additional reviews take time. The first pass supplies the fresh perspective.
 
-### 7. Informa
+### 7. Report the result
 
-Di al usuario qué se revisó, qué encontró el revisor, qué era real y qué
-no, y qué quedó sin comprobar. Si el revisor no pudo comprobar algo (por
-ejemplo, no hay Docker en la máquina), dilo: **una revisión con huecos
-dichos vale más que una que parece completa**.
+Tell the user what was reviewed, which findings were confirmed or dismissed,
+and what remains unverified. For example, record that the image could not be
+tested if Docker was unavailable.
 
-## Lo que este skill no puede
+## Review limits
 
-- **No sustituye a las pruebas.** El revisor las lee, no las escribe. Si
-  falta una validación, sigue faltando.
-- **No arregla lo que no sabe.** El revisor ve el diff, no el problema
-  entero. Los fallos de diseño se ven leyendo el código de alrededor.
-- **No es independiente del modelo.** Si el revisor usa el mismo modelo
-  que el agente principal, comparte los puntos ciegos. Lo que aporta es
-  el contexto limpio, la lista de comprobaciones y la verificación
-  mecánica: **es una red, no una garantía**.
-- **No es una auditoría exhaustiva.** Con el presupuesto de 10 minutos, se
-  busca lo grave: un CRÍTICO que rompe el despliegue, un fallo de
-  seguridad, un test que no vigila. Los detalles menores se quedan sin
-  mirar, y eso hay que decirlo.
+- The reviewer reads test results. The primary agent must supply any missing
+  coverage and run the checks.
+- The reviewer sees the diff and the supplied context. Read the surrounding
+  code to identify design defects beyond the diff.
+- A reviewer using the same model as the primary agent can share its blind
+  spots. Fresh context and the checklist still provide a separate pass.
+- The ten-minute budget prioritizes deployment failures, security defects,
+  and ineffective tests. Report which details were outside the review.
 
-## Nota sobre el informe
+## Editing the report
 
-El informe lo escribe otro modelo, y puede salir con **palabras en inglés
-coladas en el texto español**, o con destroces. Límpialo antes de
-relatar: lo que se le entrega al usuario va en español y sin ruido.
+Clean up mixed-language phrasing and other output artifacts before sharing the
+report. Present the report to the user in Spanish, as requested by this
+workflow.
 
-Si el modelo es MiniMax, también puede emitir caracteres chinos (CJK). La
-skill global `limpieza-cjk` los quita con un script; es opcional, y no
-está en este repositorio, así que si no la tienes, quita a mano lo que
-veas.
+MiniMax may also emit stray CJK characters. The optional global skill
+`limpieza-cjk` can remove them. It is not part of this repository. If it is
+unavailable, remove stray characters manually.

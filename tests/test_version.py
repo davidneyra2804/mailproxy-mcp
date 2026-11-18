@@ -1,8 +1,8 @@
-"""La versión tiene que ser la misma en todos los sitios.
+"""The version must match everywhere.
 
-Hay tres lugares donde aparece el número: `version.py` (la fuente de
-verdad), `pyproject.toml` (lo exige el formato) y la etiqueta de la
-imagen. Si uno se queda atrás, el despliegue y la documentación mienten.
+The number appears in three places: version.py (the source of truth),
+pyproject.toml (required by the format), and the image label. If any
+of them falls behind, the deployment and documentation report the wrong version.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def test_la_etiqueta_de_la_imagen_dice_la_misma_version() -> None:
 
 
 def test_el_handshake_mcp_dice_la_version(tmp_path: Path) -> None:
-    """El cliente ve la versión en el initialize, sin exponerla en /health."""
+    """The client sees the version in initialize, without exposing it on /health."""
     settings = ajustes()
     audit = AuditLog(tmp_path / "audit.jsonl")
     application, _runtime = create_app(
@@ -69,7 +69,7 @@ def test_el_handshake_mcp_dice_la_version(tmp_path: Path) -> None:
 
 
 def test_health_no_revela_la_version(tmp_path: Path) -> None:
-    """`/health` no pide token: no debe filtrar la versión a quien llame."""
+    """/health requires no token and must not reveal the version to callers."""
     settings = ajustes()
     audit = AuditLog(tmp_path / "audit.jsonl")
     application, _runtime = create_app(
@@ -82,11 +82,11 @@ def test_health_no_revela_la_version(tmp_path: Path) -> None:
 
 
 def test_el_banner_de_arranque_se_ve(tmp_path: Path) -> None:
-    """Los logs del arranque tienen que salir de verdad.
+    """Startup messages must actually be logged.
 
-    Antes salían porque el SDK configuraba el logger raíz de rebote al
-    construir el MCPServer, con su formato. Si el SDK cambiaba, el banner
-    cambiaba con él, o desaparecía.
+    They used to appear as a side effect of the SDK configuring the root
+    logger with its own format when constructing MCPServer. If the SDK
+    changed, the banner changed with it or disappeared.
     """
     import subprocess
     import sys
@@ -110,13 +110,13 @@ def test_el_banner_de_arranque_se_ve(tmp_path: Path) -> None:
     assert "Servidor listo:" in salida, salida
     assert "Configuración: " in salida, salida
     assert f"mailproxy-mcp {__version__}" in salida, salida
-    # Con el prefijo de nivel, como los de uvicorn.
+    # Include the level prefix, as in uvicorn logs.
     assert "INFO     Servidor listo:" in salida, salida
 
 
-@pytest.mark.parametrize("fichero", ["README.md", "docs/configuracion.md"])
+@pytest.mark.parametrize("fichero", ["README.md", "docs/configuration.md"])
 def test_la_documentacion_no_contradice_la_version(fichero: str) -> None:
-    """Si el README habla de una versión concreta, tiene que ser la buena."""
+    """If the README mentions a specific version, it must be the current one."""
     text = (ROOT / fichero).read_text(encoding="utf-8")
     for mentioned in set(re.findall(r"\bv?(\d+\.\d+\.\d+)\b", text)):
         if mentioned in {"0.2.0", "1.0.0"}:
@@ -124,22 +124,24 @@ def test_la_documentacion_no_contradice_la_version(fichero: str) -> None:
 
 
 def _bloque_de_publicar(fichero: Path) -> list[str]:
-    """Las líneas del bloque de "Publicar": los `sed` y los `git`.
+    """Return the sed and git commands from the publishing code block.
 
-    Se recorta la sección del fichero, en vez de filtrar el fichero
-    entero: si algún día se documenta otro `sed` en el README (un ejemplo
-    de rotación, un script de mantenimiento), este helper no lo cogía y
-    el test de sincronía fallaba con un bloque que no había cambiado.
+    Scope the scan to the section. Scanning the entire README could pick up
+    an unrelated sed command, such as a rotation example or a maintenance
+    script, and fail the synchronization test even if the block stayed the same.
 
-    La sección se busca por su encabezado, que es distinto en cada
-    fichero ("Publicar" en el AGENTS.md, "Versionado" en el README), y
-    acaba en el siguiente encabezado del mismo nivel.
+    The heading varies by file and language: Publishing or Publicar in
+    AGENTS.md, Versioning or Versionado in the README. The section ends at
+    the next heading of the same level.
     """
     lineas = fichero.read_text(encoding="utf-8").splitlines()
     inicio = None
     for numero, linea in enumerate(lineas):
         if linea.startswith("## ") and (
-            "publicar" in linea.lower() or "versionado" in linea.lower()
+            any(
+                palabra in linea.lower()
+                for palabra in ("publicar", "versionado", "publishing", "versioning")
+            )
         ):
             inicio = numero
             break
@@ -160,43 +162,42 @@ def _bloque_de_publicar(fichero: Path) -> list[str]:
 
 
 def _patron_de_sed(linea: str) -> str:
-    """El lado izquierdo de un `sed`: lo que busca y sustituye.
+    """Return the left-hand side of a sed substitution, the pattern.
 
-    Es la parte que tiene que ser la versión actual: si el patrón apunta
-    a otra, el `sed` no cambia nada y se publica una versión que dice
-    ser la anterior.
+    The pattern must match the current version. If it targets another
+    version, the command changes nothing and the published version still
+    reports the previous one.
 
-    El delimitador del `sed` (`/`, `|`, `"`) se captura para poder
-    encontrar el cierre. Un grupo **no** capturante aquí no vale: el
-    `\1` sería el grupo equivocado y el patrón saldría vacío, y un test
-    que mira una lista vacía pasa siempre.
+    Capture the sed delimiter (slash, pipe, or quote) so the backreference
+    finds the closing delimiter. A non-capturing group would make the
+    backreference point at the wrong group and return an empty pattern.
+    A test that checks an empty list always passes.
     """
     coincidencia = re.search(r"s(['\"/|])(.*?)\1", linea)
     return coincidencia.group(2) if coincidencia else ""
 
 
 def _sustitucion_de_sed(linea: str) -> str:
-    """El lado derecho de un `sed`: lo que escribe."""
+    """Return the right-hand side of a sed substitution, the replacement."""
     coincidencia = re.search(r"s(['\"/|])(.*?)\1(.*?)\1", linea)
     return coincidencia.group(3) if coincidencia else ""
 
 
 def _versiones(texto: str) -> set[str]:
-    """Los números de versión de un texto, con o sin la barra escapada."""
+    """Extract version numbers with or without escaped dots."""
     encontradas = re.findall(r"(\d+(?:\\?\.)?\d+(?:\\?\.)?\d+)", texto)
     return {v.replace("\\", "") for v in encontradas}
 
 
 def test_los_dos_bloques_de_publicar_apuntan_al_mismo_numero() -> None:
-    """El README y el AGENTS.md tienen que publicar lo mismo.
+    """The README and AGENTS.md must publish the same version.
 
-    Pasó en la 2.1.0: el bloque del README se actualizó y el del
-    `AGENTS.md` se quedó apuntando a una versión anterior. Seguir el
-    `AGENTS.md` al pie de la letra publicaba una versión más vieja que la
-    actual, y los `sed` de la documentación no casaban con nada.
+    In 2.1.0, the README block was updated while AGENTS.md still pointed
+    to an older version. Following AGENTS.md published an older version,
+    and the sed commands in the documentation matched nothing.
 
-    Se comparan **todas** las líneas del bloque, incluidas las de `git
-    commit` y `git tag`: la etiqueta es la que decide qué se publica.
+    Compare every command in the block, including git commit and git tag.
+    The tag determines what gets published.
     """
     readme = _bloque_de_publicar(ROOT / "README.md")
     agentes = _bloque_de_publicar(ROOT / "AGENTS.md")
@@ -209,17 +210,17 @@ def test_los_dos_bloques_de_publicar_apuntan_al_mismo_numero() -> None:
 
 
 def test_cada_sed_del_bloque_usa_la_version_actual_como_patron() -> None:
-    """El patrón de **cada** `sed` tiene que ser la versión actual.
+    """Every sed command must use the current version in its pattern.
 
-    El `sed` sustituye la versión actual por la siguiente. Si el patrón
-    apunta a otra, no cambia nada y se publica una versión que dice ser
-    la anterior.
+    Each command replaces the current version with the next one. A pattern
+    targeting another version changes nothing, so the published version
+    still reports the previous one.
 
-    Cada línea se mira por separado: mirar la unión de todas esconde el
-    error, porque basta con que una de ellas esté bien.
+    Check each line individually. Combining their matches can hide an error
+    if even one command uses the right version.
 
-    Y si el patrón no se puede extraer, el test **falla**: un test que
-    recorre una lista vacía pasa siempre.
+    Fail if the pattern cannot be extracted. A test that iterates over an
+    empty list always passes.
     """
     lineas = [
         linea for linea in _bloque_de_publicar(ROOT / "README.md") if linea.startswith("sed -i ")
@@ -231,8 +232,8 @@ def test_cada_sed_del_bloque_usa_la_version_actual_como_patron() -> None:
         assert patron, f"No se ha podido sacar el patrón de {linea!r}"
         versiones = _versiones(patron)
         if not versiones:
-            # El patrón es un comodín (`.*`): el `sed` sustituye lo que
-            # haya, así que no lleva número de versión.
+            # The wildcard pattern (.*) replaces any value and
+            # therefore contains no version number.
             continue
         vistas += 1
         assert versiones == {__version__}, (
@@ -246,12 +247,11 @@ def test_cada_sed_del_bloque_usa_la_version_actual_como_patron() -> None:
 
 
 def test_el_bloque_de_publicar_etiqueta_la_version_siguiente() -> None:
-    """La etiqueta y el commit tienen que ser de la versión siguiente.
+    """The tag and commit must name the next version.
 
-    Si el `git tag` apunta a otra, el workflow aborta: la etiqueta tiene
-    que coincidir con la versión que escriben los `sed`. Y no vale solo
-    que la etiqueta y el commit coincidan entre sí: tienen que ser **la
-    versión que el bloque escribe**.
+    If the git tag points elsewhere, the workflow aborts. The tag must
+    match the version written by the sed commands, even when the tag and
+    commit already agree with each other.
     """
     lineas = _bloque_de_publicar(ROOT / "README.md")
     etiquetas = set()
@@ -269,7 +269,7 @@ def test_el_bloque_de_publicar_etiqueta_la_version_siguiente() -> None:
     assert etiquetas == commits, (
         f"La etiqueta ({etiquetas}) y el commit ({commits}) no son la misma versión."
     )
-    # Y esa versión tiene que ser la que el bloque escribe.
+    # That version must also be the one the block writes.
     escritas = set()
     for linea in lineas:
         patron = _patron_de_sed(linea)

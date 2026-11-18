@@ -1,16 +1,14 @@
-"""El repositorio es público: ningún dato real puede colarse.
+"""Keep real data out of this public repository.
 
-Este repo se despliega con la configuración real de alguien. Si un dominio,
-un correo o un hostname de una máquina real se cuelan en la documentación, en
-los ejemplos o en los tests, se publica sin querer.
+The project is deployed with real configuration. A real domain, email
+address, or hostname in the documentation, examples, or tests would be
+published by mistake.
 
-Estos tests lo impiden. Fallan si aparece algo que no sea de los dominios
-reservados por la RFC 2606/6761 o de la lista corta de servicios públicos que
-el proyecto menciona a propósito.
+These tests permit only the domains reserved by RFC 2606 and RFC 6761
+and the short list of public services the project mentions deliberately.
 
-Las direcciones del propio repositorio (github.com, ghcr.io) no son datos
-suyos: son la dirección del proyecto. Y no hay forma de que un repositorio
-público no tenga dueño.
+The repository's own addresses (github.com and ghcr.io) identify the
+project itself. A public repository necessarily has an owner.
 """
 
 from __future__ import annotations
@@ -23,7 +21,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: Dominios reservados para documentación. RFC 2606 y RFC 6761.
+#: Domains reserved for documentation by RFC 2606 and RFC 6761.
 RESERVADOS_EXACTOS = frozenset(
     {"example.com", "example.org", "example.net", "example", "test", "invalid", "localhost"}
 )
@@ -37,7 +35,7 @@ RESERVADOS_SUFIJOS = (
     ".localhost",
 )
 
-#: Servicios públicos que el proyecto menciona a propósito.
+#: Public services the project mentions deliberately.
 PERMITIDOS = frozenset(
     {
         "github.com",
@@ -54,15 +52,15 @@ PERMITIDOS = frozenset(
         "python.org",
         "pypi.org",
         "docker.io",
-        # El espacio de nombres de SVG. No es un dominio al que se conecte
-        # el proyecto: lo exige el formato del fichero del favicon.
+        # The favicon format requires this SVG namespace. The project
+        # makes no connections to this domain.
         "www.w3.org",
         "localhost",
         "ip6.me",
     }
 )
 
-#: Dominios que solo pueden aparecer como prefijo de subdominio.
+#: Domains allowed as suffixes of subdomains.
 SUFIJOS_PERMITIDOS = (
     "github.com",
     "githubusercontent.com",
@@ -70,17 +68,17 @@ SUFIJOS_PERMITIDOS = (
 )
 
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
-#: Dominio en minúsculas, con un TLD plausible. El filtro de TLD evita que
-#: se cuelen rutas de Python como imaplib.IMAP4.error, ni nombres de fichero
-#: como docker-compose.local.yml. La mirada negativa evita el acceso a
-#: atributos de Python, que es lo más parecido a un dominio: logger.info(.
+#: Lowercase domain with a plausible TLD. The TLD filter skips Python
+#: paths such as imaplib.IMAP4.error and filenames such as
+#: docker-compose.local.yml. The negative lookahead skips Python
+#: attribute access that resembles a domain, such as logger.info(.
 _DOMINIO = re.compile(
     r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
     r"(?:com|net|org|io|dev|app|cloud|me|info|biz|xyz|site|online|tech|co|uk|de|fr|it|nl|pt|br|ar|mx|cat|test|invalid|example|es|eu|ai)\b"
     r"(?!\s*\()"
 )
 
-#: Rastros personales que no deben aparecer en el árbol.
+#: Personal identifiers that must stay out of the repository.
 RASTROS_PERSONALES = (
     "gmail.com",
     "MacBook-Pro",
@@ -89,7 +87,7 @@ RASTROS_PERSONALES = (
 
 
 def _ficheros_versionados() -> list[Path]:
-    """Los ficheros que git sigue. Nada de .venv ni de ficheros sueltos."""
+    """Return only Git-tracked files, excluding .venv and untracked files."""
     listado = subprocess.run(
         ["git", "ls-files"],
         cwd=ROOT,
@@ -113,12 +111,12 @@ def _reservado(dominio: str) -> bool:
 
 
 def _sospechoso(dominio: str) -> bool:
-    """¿Merece la pena mirar este dominio?
+    """Decide whether this domain-like string warrants a check.
 
-    Con tres etiquetas o más, casi siempre es un dominio de verdad. Con dos,
-    el acceso a atributos de Python se parece mucho: self.app, logger.info.
-    Ahí solo se mira si el nombre tiene guion o dígito, que es lo que
-    distingue a los dominios de verdad de una coincidencia con una palabra.
+    Strings with at least three labels are usually real domains. With
+    two labels, Python attribute access such as self.app or logger.info
+    looks similar. Check those only if the name contains a hyphen or digit,
+    which helps distinguish real domains from ordinary words.
     """
     etiquetas = dominio.split(".")
     if len(etiquetas) >= 3:
@@ -128,7 +126,7 @@ def _sospechoso(dominio: str) -> bool:
 
 
 def test_todo_correo_usa_un_dominio_reservado() -> None:
-    """example.com y(example.org) están reservados para documentación."""
+    """example.com and example.org are reserved for documentation."""
     malos: list[str] = []
     for path, text in _texto().items():
         for correo in _EMAIL.findall(text):
@@ -139,7 +137,7 @@ def test_todo_correo_usa_un_dominio_reservado() -> None:
 
 
 def test_todo_dominio_es_reservado_o_esta_permitido() -> None:
-    """Ni un dominio real colado en la documentación."""
+    """The documentation must contain no real domains."""
     malos: list[str] = []
     for path, text in _texto().items():
         for dominio in _DOMINIO.findall(text):
@@ -155,10 +153,9 @@ def test_todo_dominio_es_reservado_o_esta_permitido() -> None:
 
 
 def test_no_hay_rastros_personales_en_el_arbol() -> None:
-    """Ni correos personales ni hostnames de máquinas.
+    """The tree must contain no personal email addresses or hostnames.
 
-    Este fichero queda fuera del barrido: es el que contiene las cadenas
-    que busca, así que se encontraría a sí mismo.
+    Exclude this file because it contains the strings it searches for.
     """
     malos: list[str] = []
     for path, text in _texto().items():
@@ -172,10 +169,10 @@ def test_no_hay_rastros_personales_en_el_arbol() -> None:
 
 @pytest.mark.parametrize(
     "fichero",
-    ["README.md", "CHANGELOG.md", "docs/configuracion.md", "docs/despliegue-portainer.md"],
+    ["README.md", "CHANGELOG.md", "docs/configuration.md", "docs/deployment-portainer.md"],
 )
 def test_la_documentacion_no_tiene_dominios_reales(fichero: str) -> None:
-    """Los ficheros que más se leen, revisados a ojo por si acaso."""
+    """Check the most-read files separately as a precaution."""
     text = (ROOT / fichero).read_text(encoding="utf-8")
     for dominio in _DOMINIO.findall(text):
         dominio = dominio.lower()

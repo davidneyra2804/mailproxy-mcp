@@ -1,29 +1,29 @@
 # AGENTS.md
 
-Directivas para trabajar en **mailproxy-mcp**. Léelo antes de tocar nada.
+Read these project rules before working on **mailproxy-mcp**.
 
-## Qué es
+## Overview
 
-Un servidor [MCP](https://modelcontextprotocol.io) que da a un asistente de
-IA acceso a buzones IMAP/SMTP de terceros. El asistente **lee** libremente y
-**escribe** solo con una orden explícita de quien lo opera, en dos pasos con un
-`confirmation_id` de un solo uso.
+This [MCP](https://modelcontextprotocol.io) server gives an AI assistant access
+to third-party IMAP/SMTP mailboxes. Reads are available within the authorized
+scope. Writes require an explicit instruction from the operator and use
+two-step confirmation with a single-use `confirmation_id`.
 
-El despliegue de referencia es **Portainer + Cloudflare Tunnel**, con toda la
-configuración en variables de entorno.
+The reference deployment uses **Portainer + Cloudflare Tunnel** and takes
+all server configuration from environment variables.
 
 ```
 Cliente MCP ──HTTPS──▶ Cloudflare ──▶ cloudflared ──▶ mailproxy-mcp ──▶ IMAP/SMTP
 ```
 
-## Las directivas
+## Project rules
 
-Estas no son preferencias. Cada una viene de un fallo real.
+Each rule addresses an observed failure.
 
-### 1. Todo por variables de entorno
+### 1. Configure the server through environment variables
 
-El servidor se configura **entero** con variables `MCP_*`. No hay fichero de
-configuración: no hay TOML, ni cuentas por variables, ni listas que mantener.
+Configure the server with `MCP_*` variables. There is no configuration file,
+TOML, account configuration in the environment, or separate list to maintain.
 
 ```
 MCP_BEARER_TOKEN=el-secreto-del-cliente-mcp
@@ -31,141 +31,129 @@ MCP_DASHBOARD_KEY=la-clave-que-cifra-las-contrasenas
 MCP_DASHBOARD_TOKEN=la-credencial-del-panel
 ```
 
-**Las cuentas no van por el entorno.** Viven en la base de datos y las
-gestiona el panel. No hay ninguna variable `MCP_ACCOUNT_*`: si alguna
-volviera, el compose o el `.env.example` la documentarían y alguien creería
-que configura una cuenta.
+The dashboard manages accounts in the database. Avoid adding
+`MCP_ACCOUNT_*` variables: their presence in Compose or `.env.example` would
+lead users to expect that they configure accounts.
 
-El panel y la base **siempre están**: es la forma de gestionar las
-cuentas. `MCP_DASHBOARD_KEY` y `MCP_DASHBOARD_TOKEN` son obligatorias, y
-si faltan el arranque para. La base tiene que vivir en un volumen: sin
-volumen, el contenedor es de solo lectura y las cuentas se pierden en cada
-reinicio.
+The dashboard and database are always required. Startup stops if
+`MCP_DASHBOARD_KEY` or `MCP_DASHBOARD_TOKEN` is missing. Put the database on a
+volume so it can be written to from a read-only container and survive restarts.
 
-### 2. Fallar pronto, y con un mensaje que diga qué hacer
+### 2. Fail early with an actionable message
 
-Un valor mal escrito **aborta el arranque**. Nunca se ignora en silencio.
+An invalid value **stops startup** with an explicit error.
 
-- Un interruptor solo admite `true`, `false`, `1` y `0`. `MCP_ENABLE_SEND=yes`
-  no significa "apagado": significa error.
-- Un límite de `0` es un error, no "sin definir": un `0` explícito tiene que
-  llegar al validador y ser rechazado.
-- Un salto de línea en un valor que acaba en una cabecera es un error.
+- A switch accepts only `true`, `false`, `1`, and `0`. `MCP_ENABLE_SEND=yes`
+  produces an error.
+- An explicit limit of `0` must reach the validator and be rejected.
+- Reject line breaks in values used in headers.
 
-El motivo es concreto: con un TOML, un error de sintaxis se ve al leer el
-fichero. Con variables de entorno, un valor mal escrito se convierte en
-"apagado" y el síntoma aparece semanas después, en forma de una tool que no
-aparece. **Un error de configuración tiene que delatar la causa, aunque sea
-incómodo.**
+Syntax errors in a TOML file surface when the file is read. Invalid environment
+values can otherwise silently disable a tool and go unnoticed for weeks.
+**A configuration error must identify its cause.**
 
-### 3. Una pregunta, un dueño
+### 3. Give each rule one implementation
 
-El mismo concepto no se implementa en dos sitios. Cuando un concepto se
-repite, se extrae a un módulo y se importa.
+When the same concept appears twice, move it into a shared module and import
+it. For example, `write_capabilities` uses the same rules to decide which tools
+to register as `MailboxWriter._gated` uses to authorize individual operations.
+Duplicated rules can diverge over time.
 
-Ejemplo: `write_capabilities` (qué tools se registran) y
-`MailboxWriter._gated` (qué se puede hacer en cada operación) usan las
-mismas reglas. Lo que no esté centralizado, se duplicará y divergirá.
+### 4. Use fictitious data in the repository
 
-### 4. Ningún dato real en el repositorio
+The repository is public. Use fictitious domains, email addresses, machine
+hostnames, and IPs.
 
-Es público. Ni dominios, ni correos, ni hostnames de máquinas, ni IPs reales.
+`tests/test_ficticio.py` checks every commit for email addresses on non-reserved
+domains, non-reserved domains, and personal information. Use `example.com`,
+`example.org`, `example.net`, and `*.test` for examples (RFC 2606 and 6761).
 
-`tests/test_ficticio.py` lo comprueba en cada commit: correos de dominio no
-reservado, dominios no reservados, y rastros personales. Los dominios de
-ejemplo son `example.com`, `example.org`, `example.net` y `*.test`
-(RFC 2606 y 6761).
+The check has caught real leaks three times. Keep it strict.
 
-Ha pillado fugas reales tres veces. **No lo relajes.**
+### 5. Keep documentation in sync with the code
 
-### 5. La documentación dice lo que el código hace
+Update the documentation when the code changes. Tests verify that:
 
-Si el código cambia, la documentación cambia con él, y un test lo comprueba.
-Hay tests que verifican que:
+- `.env.example` lists every variable the code recognizes.
+- Compose declares every fixed server variable.
+- `version.py`, `pyproject.toml`, and the image tag agree.
 
-- el `.env.example` menciona todas las variables que el código conoce,
-- el compose declara todas las variables fijas del servidor,
-- `version.py`, `pyproject.toml` y la etiqueta de la imagen coinciden.
+Outdated instructions waste time for anyone who relies on them.
 
-Un documento que miente es peor que ningún documento: alguien lo sigue y
-pierde el tiempo.
+Tool descriptions and responses are part of the contract. Record changes to
+tool names or arguments in the CHANGELOG and explain the required client
+action in the deployment section.
 
-Esto incluye la **documentación de las tools**: la descripción de cada tool
-y la respuesta que devuelve son parte del contrato, no comentarios. Si una
-tool cambia de nombre o de argumentos, el CHANGELOG lo dice y la sección de
-despliegue avisa de lo que tiene que hacer el cliente.
+### 6. Keep secrets out of the image and Git
 
-### 6. Nada de secretos en la imagen ni en git
+Supply deployment secrets through the environment. The image must contain
+no tokens or passwords. `.gitignore` excludes `.env`. Track `.env.example`
+with fictitious values.
 
-La imagen no lleva tokens ni contraseñas. Las cuentas se configuran por
-entorno. `.env` está en `.gitignore`; lo que se versiona es `.env.example`,
-con valores ficticios.
+## Code map
 
-## Mapa del código
-
-| Fichero | De qué se ocupa |
+| File | Responsibility |
 | --- | --- |
-| `server.py` | `MCPServer`, el Bearer, el enrutado por cuenta, el registro de tools |
-| `config.py` | Variables de entorno, capabilities, límites, validación |
-| `scope.py` | El ámbito de la petición: qué cuentas puede tocar una llamada |
-| `audit.py` | JSONL de cada llamada, sin cuerpos ni credenciales |
-| `mail/imap.py` | Lectura (`EXAMINE`, `BODY.PEEK`) y el punto único de aislamiento |
-| `mail/mutate.py` | Escritura: marcar, borrar, borrador, enviar |
-| `mail/confirm.py` | `confirmation_id` de un solo uso y cupo diario, en memoria |
-| `mail/compose.py` | Construcción del mensaje y escapado de cabeceras |
-| `mail/readonly.py` | Proxy que bloquea la escritura en las rutas de lectura |
-| `store/db.py` | La base de datos: esquema, migraciones, revisión |
-| `store/crypto.py` | El cifrado de las contraseñas, con la clave fuera de la base |
-| `store/store.py` | Las operaciones: dominios, cuentas y tokens |
-| `store/accounts.py` | La fuente de cuentas: estática o de la base, con recarga |
-| `store/direct_send.py` | La idempotencia del envío directo: claves y huellas, en la base |
-| `dashboard/app.py` | El panel: rutas, sesión y anti-CSRF |
-| `dashboard/api.py` | Los handlers del panel, incluida la prueba de conexión |
-| `dashboard/ui.py` | La interfaz y el login |
-| `docker/rotate_audit.py` | Rota el JSONL de auditoría |
-| `docker/healthcheck.py` | La sonda: el MCP y, si está, el panel |
-| `tests/ayuda.py` | Ajustes del servidor y cuentas de mentira para las pruebas |
-| `tests/test_nombres_de_campos.py` | Los nombres de campo de la superficie MCP, que no pueden parecer credenciales |
+| `server.py` | `MCPServer`, bearer authentication, account routing, and tool registration |
+| `config.py` | Environment variables, capabilities, limits, and validation |
+| `scope.py` | Request scope, which determines which accounts a call can access |
+| `audit.py` | JSONL per call, excluding bodies and credentials |
+| `mail/imap.py` | Reads (`EXAMINE`, `BODY.PEEK`) and centralized isolation |
+| `mail/mutate.py` | Writes: marking, deleting, drafting, and sending |
+| `mail/confirm.py` | In-memory single-use `confirmation_id` and daily quota |
+| `mail/compose.py` | Message construction and header escaping |
+| `mail/readonly.py` | Proxy that blocks writes on read paths |
+| `store/db.py` | Database schema, migrations, and revision counter |
+| `store/crypto.py` | Password encryption with the key stored outside the database |
+| `store/store.py` | Domain, account, and token operations |
+| `store/accounts.py` | Static or database-backed account source, with reload support |
+| `store/direct_send.py` | Direct-send idempotency keys and fingerprints in the database |
+| `dashboard/app.py` | Dashboard routes, session, and CSRF protection |
+| `dashboard/api.py` | Dashboard handlers, including the connection test |
+| `dashboard/ui.py` | Dashboard UI and login |
+| `docker/rotate_audit.py` | JSONL audit log rotation |
+| `docker/healthcheck.py` | Health probe for MCP and the dashboard when available |
+| `tests/ayuda.py` | Server settings and fictitious test accounts |
+| `tests/test_nombres_de_campos.py` | Checks that MCP field names avoid credential patterns |
 
-## El modelo de rutas y permisos
+## Routes and permissions
 
-**Rutas.** La ruta decide el ámbito; el Bearer decide la credencial.
+**Routes.** The route defines the scope. The bearer token authorizes it.
 
-| Ruta | Credencial | Ámbito |
+| Route | Accepted credentials | Scope |
 | --- | --- | --- |
-| `/mcp` | `MCP_BEARER_TOKEN` | la guía (el catálogo de rutas) y el dominio por defecto |
-| `/mcp/<dominio>` | el global, o el del dominio | las cuentas de ese dominio |
-| `/mcp/<cuenta>` | el global, el de la cuenta o el de su dominio | una cuenta |
+| `/mcp` | `MCP_BEARER_TOKEN` | Route catalog and default domain |
+| `/mcp/<domain>` | Global or domain credential | Accounts in that domain |
+| `/mcp/<account>` | Global, account, or owning domain credential | One account |
 
-`<cuenta>` puede ser el correo, el `NAME` de la cuenta o su índice.
-`<dominio>` es el nombre del dominio. El bearer de una cuenta **solo**
-vale en su ruta: en cualquier otra, 403. Y la ruta general es solo de la
-credencial general: la de un dominio o la de una cuenta, ahí, responde 403.
+`<account>` can be the email address, account `NAME`, or index. `<domain>`
+is the domain name. An account token is valid only on its own account route.
+The general route accepts only the global token. A credential used outside
+its authorized routes receives 403.
 
-El aislamiento se aplica en **un solo punto**: `MailService._account()`. El
-ámbito viaja en un `ContextVar` (`scope.py`), porque las tools del SDK son
-síncronas y se ejecutan en un hilo del pool.
+`MailService._account()` is the single enforcement point for isolation.
+Scope is carried in a `ContextVar` (`scope.py`) because SDK tools are
+synchronous and run in a thread pool.
 
-**Permisos de escritura.** El global es el maestro y además el valor por
- defecto. Con el panel hay un nivel más: el dominio. El más específico
-manda, y el que no dice nada hereda.
+**Write permissions.** The global switch controls availability and supplies
+the default. A domain can restrict it, and an account can supply its own
+setting within those limits. Unset values are inherited.
 
-| Global | Del dominio | De la cuenta | Resultado |
+| Global | Domain | Account | Result |
 | --- | --- | --- | --- |
-| `false` | lo que sea | lo que sea | apagada |
-| `true` | sin definir | sin definir | encendida (hereda) |
-| `true` | sin definir | `true` | encendida |
-| `true` | sin definir | `false` | apagada para esa cuenta |
-| `true` | `false` | lo que sea | apagada en el dominio |
+| `false` | Any | Any | Disabled |
+| `true` | Unset | Unset | Enabled by inheritance |
+| `true` | Unset | `true` | Enabled |
+| `true` | Unset | `false` | Disabled for that account |
+| `true` | `false` | Any | Disabled for the domain |
 
-**El envío directo es una capacidad aparte**, con su propio interruptor
-(`MCP_ENABLE_DIRECT_SEND`) y su propio permiso (`allow_direct_send`). No
-hereda de `send`: una cuenta puede tener los dos o solo uno. En una cuenta
-con envío directo, el MCP **no** exige confirmación por mensaje; la
-autorización es la que se dio de antemano, y la idempotencia (en la base)
-es lo que hace seguro el reintento.
+**Direct sending is a separate capability** with its own switch
+(`MCP_ENABLE_DIRECT_SEND`) and permission (`allow_direct_send`). An account
+can enable either or both send modes independently of `send`. Direct sending
+uses prior authorization without per-message confirmation. Database-backed
+idempotency makes retries safe.
 
-## El flujo de trabajo
+## Development workflow
 
 ```bash
 python3 -m venv .venv
@@ -175,481 +163,393 @@ python3 -m venv .venv
 .venv/bin/pytest
 ```
 
-Sin red y sin buzón real: los tests llevan un doble de IMAP y otro de SMTP.
+Tests use IMAP and SMTP doubles and need neither network access nor a real
+mailbox.
 
-**Verifica en un clon limpio, no solo en tu `.venv`.** Local y CI no se
-comportan igual, y la diferencia hay que buscarla:
+**Verify in a clean clone with a new virtual environment.** Local runs and
+CI can behave differently.
 
 ```bash
-# El diff se regenera DESPUÉS de los arreglos: el clon tiene que validar
-# el código que se va a fusionar, no el anterior.
+# The diff is regenerated AFTER the fixes: the clone has to validate the
+# code that is going to be merged, not the previous one.
 git add -A && git diff --cached > /tmp/revision.diff
 set -e
 TMP=$(mktemp -d); git clone . "$TMP/ci"; cd "$TMP/ci"
-# Si el cambio no está commiteado, aplícalo (con --index).
-# Si ya está commiteado, el clon lo lleva: no apliques nada.
+# If the change is not committed, apply it (with --index).
+# If it is already committed, the clone carries it: do not apply anything.
 git apply --index /tmp/revision.diff
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 .venv/bin/ruff format --check . && .venv/bin/ruff check .
 .venv/bin/pytest
-PYTHONSAFEPATH=1 .venv/bin/pytest    # el entorno de Actions
+PYTHONSAFEPATH=1 .venv/bin/pytest    # the Actions environment
 ```
 
-**El clon tiene que llevar el cambio.** `git clone` sale del último
-commit, así que si el cambio no está commiteado, el clon sale con el
-código anterior y el control da verde en falso. Por eso se aplica el
-diff dentro del clon, con `--index` para que los ficheros nuevos queden
-versionados. Si el cambio **ya** está commiteado, el clon lo lleva y no
-se aplica nada. Y el `set -e` no es opcional: **si el `git apply`
-falla, el control no vale**, porque los tests se correrían contra el
-código anterior y pasarían.
+**The clone must contain the change.** A clone starts at the latest commit.
+For an uncommitted change, apply its diff with `--index` so new files are
+tracked. For a committed change, clone the commit and skip the patch.
+Use `set -e` to stop on a failed `git apply`. Results obtained after a failed
+patch would apply to the old code.
 
-**`ruff format --check`, no `ruff format`.** Para comprobar, es
-`--check`: `ruff format` reescribe los ficheros y luego `ruff check`
-pasa siempre, así que una violación de formato pasaría desapercibida y el
-clon ya no sería lo que se iba a revisar.
+**Use `ruff format --check` for verification.** `ruff format` rewrites files.
+A successful check after a rewrite can conceal a formatting violation in
+the original tree.
 
-**El clon tiene que ser un clon de verdad, con su `.git`.** Una copia con
-`rsync` o `cp` no sirve: el detector de datos ficticios usa `git ls-files`,
-y sin repositorio falla con `returned non-zero exit status 128` en vez de
-comprobar nada.
+**Use a real clone with its `.git` directory.** Copies made with `rsync` or
+`cp` lack repository metadata. The fictitious-data detector needs
+`git ls-files` and otherwise fails with `returned non-zero exit status 128`.
 
-Tres cosas que el clon limpio pilla y el directorio de trabajo no:
+A clean clone catches three problems:
 
-- Los ficheros **sin versionar** no los barre el detector de datos
-  ficticios, que usa `git ls-files`.
-- Las dependencias se instalan de verdad: tu `.venv` puede tener paquetes
-  que `requirements.txt` ya no pide.
-- `PYTHONSAFEPATH` (Actions) no añade el directorio de trabajo a
-  `sys.path`, y los subprocesos que importan el proyecto dejan de
-  encontrarlo. El fallo sale **solo en CI**, que es el peor sitio.
+- The fictitious-data detector ignores untracked files because it uses
+  `git ls-files`.
+- A fresh install exposes dependencies your local `.venv` may still have
+  even though `requirements.txt` no longer declares them.
+- `PYTHONSAFEPATH` in Actions leaves the working directory off `sys.path`.
+  Subprocess imports can therefore fail only in CI.
 
-Y una regla de orden: **`ruff format` antes que `ruff check`**, y los dos
-después de cada edición. Un cambio puede dejar líneas largas y hacer fallar
-el linter donde antes pasaba.
+Run the formatting check before the lint check after each edit. Formatting
+can affect lint outcomes. During editing, `ruff format` formats the files.
+During verification, `ruff format --check` checks the files as they are.
 
-Ojo con la diferencia: `ruff format` **reescribe**, `ruff format --check`
-**comprueba**. Mientras se edita, se reescribe (que es lo que quiere: que
-el código quede formateado). Para **verificar** que algo está formateado,
-el comando es `--check`: con `format` primero, el linter pasa siempre y
-el problema ya no está.
+Before accepting a change:
 
-Antes de dar algo por bueno:
+1. **Test the image.** `tests/test_docker.py` assembles the files copied by
+   the Dockerfile and starts the server from that directory. Tests run from
+   the repository can pass even when the image is missing a module.
+2. **Check first-time setup.** Verify that missing variables produce startup
+   messages that explain how to fix them.
+3. **Update `.env.example` and Compose when a variable changes.** Tests
+   check the names. Verify the defaults as well.
+4. **Add regression coverage for every defect you fix manually.** Confirm
+   that the test fails without the fix.
+5. **Keep the UI and API in sync.** `tests/test_interfaz_api.py` compares
+   JavaScript calls with the application's routes. A misspelled route can
+   leave a button inert without a visible error.
 
-1. **Prueba la imagen, no solo el código.** `tests/test_docker.py` monta un
-   directorio con lo que copia el Dockerfile y arranca el servidor desde ahí.
-   Los tests locales pasan aunque a la imagen le falte un módulo.
-2. **Piensa en la cuenta que lee un usuario nuevo.** ¿Qué variable falta? ¿El
-   mensaje de arranque dice qué hacer?
-3. **Si cambias una variable, `.env.example` y el compose.** Hay tests que lo
-   comprueban, pero solo de los nombres: el valor por defecto también importa.
-4. **Cada fallo que corrijas a mano, conviértelo en una regla.** Si lo
-   encuentras revisando el diff, otro se tropezará con lo mismo, y
-   probablemente tarde más en aparecer. Un test que falla es un fallo que no
-   vuelve.
-5. **La interfaz y la API no se pueden desincronizar.** `tests/test_interfaz_api.py`
-   compara las llamadas del JavaScript con las rutas que declara la
-   aplicación. Una ruta mal escrita no da error: el botón no hace nada.
+## Pitfalls
 
-## Trampas
+Each of these caused a broken release.
 
-Cada una de estas costó una release rota.
+- **A module missing from the image.** `scope.py` was missing from the
+  Dockerfile's `COPY`, so the container could not start. Tests from the
+  repository passed because the file was present there. The image layout
+  test reproduces the container's file set.
+- **Two modules implementing different versions of the same rule.** The
+  entrypoint still read `MCP_ACCOUNTS` after the schema switched to indexed
+  discovery. The entrypoint was removed. Configure the server through the
+  environment and manage accounts in the database.
+- **An error message listing settings that are already correct.** The
+  marking error listed `MCP_ENABLE_MARK=true` and
+  `MCP_ACCOUNT_ALLOW_MARK_<N>=true` even when the global value was already
+  set. Report only missing settings.
+- **imapclient's `logout()` already closes the socket.** A subsequent
+  `shutdown()` attempts a second close and adds an error to every request log.
+- **An account default overriding a global setting.** `MCP_SMTP_SECURITY`
+  had no effect while the account always set the mode. A default at the
+  more specific layer can override the documented global setting.
+- **`Bcc` in the copy in Sent.** The SMTP message omitted `Bcc` but the
+  stored copy still included it. Remove it before `APPEND`.
+- **Display names in headers.** An unescaped comma can split an address
+  in two. Escape display names with `formataddr` and reject CRLF when
+  loading header values.
+- **A required argument already determined by the route.** The `account`
+  argument was required even on `/mcp/<account>`, where the route identifies
+  the account. The model had to guess the key.
+- **A stale account snapshot.** Accounts added in the dashboard were
+  invisible to `/mcp`. Use a reloadable source and check its revision
+  counter in the database on every request. A cache without invalidation
+  makes dashboard edits appear ineffective.
+- **A credential with excessive scope.** Enforce isolation by route type.
+  An account credential must never open a domain route, even if the
+  domain currently contains only that account. Filtering the returned
+  accounts alone would allow that access.
+- **The general route exposing every mailbox.** Keep `/mcp` as the entry
+  point for the route catalog and the default domain, if configured.
+- **Two simultaneous account sources.** v2 made the database the only
+  account source and removed environment-based accounts. Multiple sources
+  could cause missing tools or inexplicable changes to accounts.
+- **A database without persistence.** Put the database on the data volume.
+  Without it, the read-only container either prevents writes or loses the
+  database on restart. A test checks the mount.
+- **A silent UI failure.** A misspelled JavaScript route, an inert button,
+  or a label missing `for=` can leave a broken feature on a page that still
+  loads. `tests/test_interfaz_api.py` checks the UI against the API.
+- **A form that exposes the data model.** The form asked for the same email
+  three times because the route identifier, label, and login are separate
+  fields in the model. Put unusual overrides under advanced options.
+- **An edit breaking an existing route.** The route alias identifies the
+  account in `/mcp`. Preserve it on edits. Overwriting it with the email
+  address silently breaks existing clients.
+- **An explicit `0` treated as unset.** The pattern `int(valor) or 100`
+  silently fell back to the default for an explicit zero. `_env_int_or()`
+  and `_env_float_or()` distinguish unset variables from explicit values
+  so the validator can reject zero. Preserve that distinction for every
+  explicitly supplied invalid value.
+- **Use reserved domains in examples.** The reserved domains are
+  `example.com`, `example.org`, `example.net`, `*.test`, `*.invalid`, and
+  `*.localhost`. Using a non-reserved equivalent slipped through twice.
+- **A field name preventing delivery of its value.** Paperclip redacts tool
+  response fields with names such as `token`, `secret`, `password`, `api_key`,
+  and `bearer`. `validateToolContent` delivers the redacted result. The agent
+  received `***REDACTED***` for `confirm_token` and could not complete the
+  send. Use `confirmation_id` with a `cfm_` prefix to avoid credential
+  patterns. `tests/test_nombres_de_campos.py` checks MCP field names and
+  values. The ID requires the account's bearer token and works once, for
+  one operation on one account, within ten minutes.
+- **A tool response is a text block containing JSON.** The platform also
+  redacts text, so `"confirm_token": "..."` can be redacted inside the block.
+  Run the pattern against the response text when checking whether a value
+  survives redaction.
+- **The MCP client caches the tool catalog.** Renaming an argument leads
+  to a validation failure when the client sends the old name. When a tool
+  contract changes, tell users to refresh the catalog and record this in
+  the deployment section of the CHANGELOG.
+- **Write responses that omit identifiers.** `send_message` returned
+  `sent: true` and `copy_in_sent: true` without `message_id` or `sent_uid`.
+  Clients had to guess the folder and search criteria, and a misspelled
+  query could make the copy appear missing. A write that creates readable
+  data must return the information needed to retrieve it.
+- **Single-call tools cannot rely on a second call.** Paperclip could
+  call the preparation tool but could not pass the `confirmation_id` to
+  a second call. `send_message_direct` sends in one call with prior
+  authorization. It is opt-in with its own global switch
+  (`MCP_ENABLE_DIRECT_SEND`) and permission (`allow_direct_send`). Store
+  idempotency in the database so a restart cannot cause a duplicate send.
+- **An argument containing `key` can be redacted.** Paperclip uses field
+  names to identify credentials. `idempotency_key` contains `key`, but
+  `tests/test_nombres_de_campos.py` ensures it does not match the secret
+  pattern. The name is part of the contract. The audit log redacts its value.
+- **An explicit SMTP rejection and no SMTP reply have different retry
+  semantics.** A rejection means the message was not sent. A lost reply
+  leaves delivery uncertain. `mail/smtp_out.py` releases the idempotency
+  key for explicit rejections (`SMTPRecipientsRefused` or
+  `SMTPResponseException`) and keeps it reserved on `SmtpUncertain`.
+  Model rejection in the SMTP double with a server response. A generic
+  `SMTPException` tests the uncertain outcome and can pass for the wrong reason.
+- **Idempotency keys require content fingerprints.** The key identifies
+  the send and the fingerprint identifies its content. The fingerprint
+  lets the server reject reuse of a key with a different body, which
+  would otherwise return the earlier result and leave the new message unsent.
+- **A test database can persist on disk.** `conftest.py` sets
+  `MCP_DASHBOARD_DB` in a temporary directory. A stale test file can
+  still exist between runs. After a schema change, reading an old row can
+  raise `IndexError: No item with that key`. Remove the stale test database
+  or use a fresh filename when the schema changes.
+- **Always write the schema version after migration.** The v1-to-v2
+  migration wrote `schema_version` only if the row was absent. A migrated
+  database whose row still said `1` reran the migration on every startup.
+  Construct a v1 database with accounts and a version row to verify that
+  migration records the new version. `prepare()` on a new database does not
+  exercise the existing row.
+- **Adding a column to an existing database requires `ALTER TABLE`.**
+  `CREATE TABLE` affects only new databases. `allow_direct_send` was added
+  to `_SCHEMA_V1` while `_SCHEMA_V2` only created `direct_sends`, causing
+  `IndexError: No item with that key` when reading an existing row. Treat
+  v1 as historical and add columns in migrations with `ALTER TABLE`.
+- **The version number can outpace the schema.** A migration that fails
+  partway can leave a database with a new version and incomplete changes.
+  A version-only guard skips it at subsequent startups. Inspect actual
+  columns with `PRAGMA table_info` and make the migration idempotent.
+  Test with a partial database containing the new table and version but
+  missing the column.
+- **A test iterating over an empty list always passes.** The IMAP double
+  used `input_schema` while the test read `inputSchema`. `getattr` returned
+  `None` and the test checked no names. Assert that the schema and names
+  exist, and revert the fix temporarily to confirm that the test fails.
+- **The IMAP double must implement the criteria the code uses.**
+  The double ignored `HEADER Message-ID` and matched every message.
+  Model the server's behavior so the test checks the intended condition.
 
-- **Un módulo que no llega a la imagen.** `scope.py` se quedó fuera del
-  `COPY` del Dockerfile y el contenedor no arrancaba. Los tests locales pasaban
-  porque corren desde el repo, donde el fichero sí está. La prueba que monta
-  la imagen existe por esto.
-- **Dos módulos con la misma regla y reglas distintas.** El entrypoint seguía
-  mirando `MCP_ACCOUNTS` después de que el esquema pasara a discovery por
-  índice. Hoy el entrypoint no existe: la configuración va entera por
-  entorno, y las cuentas, por la base.
-- **Un mensaje que lista lo que ya está puesto.** Decía *"marcado necesita
-  `MCP_ENABLE_MARK=true` y `MCP_ACCOUNT_ALLOW_MARK_<N>=true`*" con la global
-  ya en `true`, y hacía dudar de la que estaba bien. **Di solo lo que falta.**
-- **`logout()` de imapclient ya cierra el socket.** Llamar a `shutdown()`
-  después es un doble cierre que falla y ensucia el log en cada petición.
-- **Un valor por defecto en la cuenta anula un global.** `MCP_SMTP_SECURITY`
-  era código muerto porque la cuenta fijaba siempre el modo. Un default en la
-  capa más específica puede anular el global que documentan.
-- **El `Bcc` se quedaba en la copia de Enviados.** Lo que sale por SMTP no
-  lleva `Bcc`; la copia que se guarda, sí. Quítalo antes del `APPEND`.
-- **Un nombre visible en una cabecera.** Sin escapar, una coma parte la
-  dirección en dos. Con un CRLF, se inyectan cabeceras. `formataddr` para
-  lo primero, rechazo en la carga para lo segundo.
-- **Un argumento obligatorio que la ruta ya determina.** `account` en las tools
-  era obligatorio incluso en `/mcp/<cuenta>`, donde la ruta ya dice cuál es.
-  El modelo tenía que adivinar la clave.
-- **Un snapshot que se queda viejo.** El panel añade una cuenta y `/mcp` no la
-  ve. El conjunto de cuentas no es un diccionario del arranque: es una
-  **fuente** que se recarga, y la recarga se comprueba en cada petición
-  (el contador de revisiones vive en la base). Si alguna vez se cachea sin
-  invalidar, el síntoma es "el panel no hace nada".
-- **Una credencial que cubre de más.** El aislamiento no mira los datos que
-  devuelve la ruta, mira **el tipo de ruta**: la credencial de una cuenta no
-  abre la ruta de un dominio, aunque ese dominio tenga una sola cuenta. Una
-  regla que mire "las cuentas que quedan dentro" deja pasar a la credencial
-  de una cuenta por la ruta de su dominio.
-- **La ruta general como atajo a todo.** `/mcp` exponiendo todas las cuentas
-  convierte al bearer general en un copymachine de buzones. Es la puerta de
-  entrada: la guía, y el dominio por defecto si hay uno.
-- **Dos fuentes de las cuentas a la vez.** La base de datos manda y las
-  variables de entorno se ignoran. Mezclarlas es la forma segura de tener
-  dos verdades, y de dos verdades sale una que nadie sabe cuál es. **En la
-  v2 esto se resolvió quitando la segunda fuente**, no decidiendo cuál
-  gana: la base es la única. Si algún día vuelve a haber dos, el síntoma
-  es una tool que no aparece o una cuenta que cambia sola.
-- **Una base de datos que no persiste.** Sin volumen, el contenedor es de
-  solo lectura: o la base no se puede escribir, o se pierde en cada
-  reinicio. La ruta tiene que caer en el volumen, y hay un test que lo
-  comprueba.
-- **Un fallo silencioso en la interfaz.** Una ruta mal escrita en el
-  JavaScript, un botón sin acción, una etiqueta sin `for=`: nada falla y
-  nada avisa. La página carga y la función no existe. Por eso
-  `tests/test_interfaz_api.py` compara las dos capas.
-- **El idioma del servidor no es el de quien lo usa.** El formulario pedía
-  el mismo correo tres veces, porque el modelo de datos pide distinguir
-  identificador de ruta, etiqueta y usuario de conexión. El modelo puede ser
-  correcto y la interfaz, ilegible. Las excepciones van a "opciones
-  avanzadas".
-- **Editar no puede romper lo que ya funciona.** El alias de la ruta es el
-  identificador en `/mcp`. Si al editar se sobrescribe con el correo, la
-  ruta que ya tiene un cliente deja de existir, sin avisar.
-- **Un `0` explícito no es "sin definir".** Al leer una variable de entorno
-  con el patrón `int(valor) or 100`, un `0` se tomaba por "no definida" y
-  caía al valor por defecto en silencio: un límite de `0` pasaba sin
-  rechistar. Por eso existen `_env_int_or()` y `_env_float_or()`: distinguen
-  "no definida" de un valor explícito, y el `0` llega al validador y se
-  rechaza. **Un valor escrito a mano tiene que poder ser un error.**
-- **`example.com`, nunca `ejemplo.com`.** Los dominios reservados son
-  `example.com`, `example.org`, `example.net`, `*.test`, `*.invalid` y
-  `*.localhost`. Esta confusión se coló dos veces.
-- **Un nombre de campo puede hacer que el agente nunca reciba el valor.**
-  Paperclip tapa por **nombre** los campos de una respuesta de tool que
-  "parecen credenciales" (`token`, `secret`, `password`, `api_key`,
-  `bearer`...), y **lo que entrega al modelo es el valor tapado**, no el
-  original: su `validateToolContent` devuelve el resultado redactado. Con un
-  campo llamado `confirm_token`, el agente recibía `***REDACTED***` en lugar
-  del identificador y no podía completar el envío. El nombre del campo, no
-  su valor, decide si se tapa. **Por eso el campo se llama
-  `confirmation_id`, y su valor lleva un prefijo `cfm_`** que tampoco lo hace
-  parecer una clave de proveedor. `tests/test_nombres_de_campos.py` lo fija:
-  ningún nombre de la superficie MCP puede caer en un patrón de secreto, y
-  el valor no puede tener la forma de una credencial conocida.
-  El `confirmation_id` **no es una credencial**: sin el bearer de la cuenta no
-  sirve de nada, solo vale para una operación, en una cuenta, y durante diez
-  minutos.
-- **La respuesta de una tool es un bloque de texto con JSON dentro.** La
-  redacción de la plataforma también se aplica al texto, no solo a las claves:
-  `"confirm_token": "..."` se sustituye dentro del bloque. Al comprobar si un
-  valor sobrevive, hay que pasar la regex **por el texto de la respuesta**,
-  no solo por las claves del objeto.
-- **El cliente MCP cachea el catálogo de las tools.** Cambiar el nombre de un
-  argumento rompe la primera llamada hasta que el cliente refresca el
-  catálogo: manda el nombre viejo, el servidor lo rechaza con un error de
-  validación, y el agente tiene que releer el esquema para salir del paso.
-  Al cambiar el contrato de una tool, hay que **refrescar el catálogo en el
-  cliente** y decirlo en el CHANGELOG, en la sección de despliegue.
-- **Una respuesta sin identificadores no se puede comprobar.** `send_message`
-  decía `sent: true` y `copy_in_sent: true`, pero sin `message_id` ni
-  `sent_uid` no había forma de localizar la copia en Enviados: había que
-  adivinar carpeta y criterio de búsqueda, y una búsqueda mal escrita daba
-  cero resultados y parecía que la copia no estaba. **Toda operación que
-  escriba algo que se pueda volver a leer devuelve cómo llegar a ello.**
-- **Una tool que se llama una vez no puede depender de la segunda.** El
-  flujo de dos pasos obligaba al agente a llevar un `confirmation_id` de
-  una llamada a otra, y en Paperclip eso no ocurría: el agente llamaba una
-  vez y la plataforma no le dejaba hacer la segunda. El **envío directo**
-  (`send_message_direct`) resuelve eso: una llamada, sin confirmación por
-  mensaje. Pero cambia el modelo de seguridad, así que es **opt-in**: su
-  propio interruptor global (`MCP_ENABLE_DIRECT_SEND`), su propio permiso
-  (`allow_direct_send`) y la idempotencia va en la base de datos, no en
-  memoria. Un reintento tras un reinicio del servidor no puede duplicar el
-  correo: si la clave viviera en memoria, el reinicio la borraría y el
-  reintento enviaría otra vez.
-- **Un nombre de argumento con `key` puede acabar tapado.** Paperclip
-  redacta por nombre lo que parece una credencial, y `idempotency_key`
-  lleva `key` dentro. El patrón de `tests/test_nombres_de_campos.py` no
-  lo marca, pero el nombre es un contrato: el test fija que no cae en el
-  patrón, y la auditoría lo redacta.
-- **Un rechazo y una falta de respuesta no son lo mismo.** El SMTP puede
-  rechazar el envío (el mensaje no salió) o dejar de responder (el mensaje
-  **puede** haber salido). En el segundo caso, reenviar a ciegas duplica el
-  correo. `mail/smtp_out.py` distingue los dos: un rechazo con respuesta
-  (`SMTPRecipientsRefused`, `SMTPResponseException`) es un fallo y libera
-  la clave de idempotencia; una excepción de red es `SmtpUncertain` y la
-  clave queda reservada. **El doble de SMTP tiene que modelar el rechazo
-  con la respuesta del servidor**, no con un `SMTPException` genérico: si
-  el doble lanza la excepción genérica, el test dice "rechazó" cuando en
-  realidad el código está viendo un envío incierto, y pasa por el motivo
-  equivocado.
-- **Una clave de idempotencia necesita una huella, no solo una clave.**
-  La clave dice *qué* envío es; la huella dice *con qué contenido*. Sin
-  la huella, un reintento con la misma clave pero con otro cuerpo se
-  devolvería como "ya enviado" y el correo real no saldría nunca. Con la
-  huella, la segunda llamada se rechaza por contenido distinto.
-- **Una base de datos de pruebas se queda en el disco.** El `conftest.py`
-  pone `MCP_DASHBOARD_DB` en el directorio temporal, y el fichero persiste
-  entre ejecuciones. Al cambiar el **esquema** (una columna nueva, una
-  tabla), la base vieja sigue ahí con la versión anterior y el arranque
-  falla con `IndexError: No item with that key` al leer una fila: no es un
-  fallo de la migración, es una base vieja que hay que borrar. Cuando
-  cambia el esquema, hay que borrar la base de pruebas (o usar una base
-  con nombre nuevo).
-- **La versión del esquema se escribe siempre, no solo cuando falta.** La
-  migración de la v1 a la v2 escribía `schema_version` solo si la fila no
-  existía. Una base que migraba aplicaba los cambios pero **seguía
-  marcando "1"**, así que la migración se volvía a aplicar en cada
-  arranque. Solo se nota con una base que ya tiene la fila: por eso el
-  test de migración tiene que **armar la base vieja a mano**, con sus
-  cuentas dentro, y comprobar que después queda en la versión nueva. Un
-  `prepare()` sobre una base recién creada no lo detecta: ahí la fila no
-  existe y el `if` hace lo correcto.
-- **Añadir una columna no es cambiar el `CREATE TABLE`.** El `CREATE TABLE`
-  solo afecta a las bases **nuevas**. Una base que ya existe necesita un
-  `ALTER TABLE`, y si la migración no lo hace, el servidor arranca y se
-  cae al leer la primera fila: `IndexError: No item with that key`. Pasó
-  con `allow_direct_send`: la columna se añadió al `_SCHEMA_V1` (que es
-  el esquema de las bases nuevas) y la migración `_SCHEMA_V2` solo creaba
-  la tabla `direct_sends`. **La v1 es histórica: no se toca.** Lo que se
-  añade a una tabla existente va en la migración, con su `ALTER TABLE`.
-- **El número de versión puede mentir.** Una migración que aplica los
-  cambios y **después** falla deja la base con la versión nueva escrita y
-  los cambios a medias. Una migración gateada por el número ("si la
-  versión es menor que 2, migra") no la toca nunca más: parece al día y
-  no lo está. Por eso la comprobación de columnas se hace **contra la
-  tabla real** (`PRAGMA table_info`), no contra el número, y por eso
-  tiene que ser **idempotente**: si la columna ya está, no se toca. El
-  test que vigila esto arma una base "a medias" a mano: con la tabla
-  nueva, la versión nueva y **sin** la columna.
-- **Un test que recorre una lista vacía pasa siempre.** El doble de IMAP
-  expone el esquema como `input_schema`, y el test leía `inputSchema`:
-  `getattr` devolvía `None`, la lista quedaba vacía y el test pasaba sin
-  mirar nada. **Un test que no puede fallar no vigila nada**: hay que
-  comprobar que el esquema existe y que se han mirado nombres, y hay que
-  comprobar que el test falla cuando se rompe lo que vigila (revertir el
-  nombre y ver que falla).
-- **El doble de IMAP tiene que saber lo que el código usa.** El criterio
-  `HEADER Message-ID` no estaba simulado: el doble lo ignoraba y daba
-  "coincide todo". Un test puede pasar **por el motivo equivocado** si el
-  doble no modela lo que el servidor real modela.
+## Publishing
 
-## Publicar
-
-La versión vive en `version.py`. Para subir una:
+The version is defined in `version.py`. To release a new version:
 
 ```bash
 sed -i 's/__version__ = ".*"/__version__ = "2.4.1"/' version.py
 sed -i 's/^version = ".*"/version = "2.4.1"/' pyproject.toml
 sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.4.1/' Dockerfile
-sed -i 's/mailproxy-mcp 2\.4\.0 |/mailproxy-mcp 2.4.1 |/' docs/configuracion.md
+sed -i 's/mailproxy-mcp 2\.4\.0 |/mailproxy-mcp 2.4.1 |/' docs/configuration.md
 sed -i 's|mailproxy-mcp:2\.4\.0|mailproxy-mcp:2.4.1|' README.md
 git commit -am "version 2.4.1"
 git tag v2.4.1 && git push origin v2.4.1
 ```
 
-Los `sed` de la documentación no son opcionales: hay un test que
-comprueba que la documentación no habla de una versión vieja. El patrón es
-la versión **actual**, así que hay que cambiarlo en cada subida.
+The documentation `sed` commands are required. Tests check that the
+documentation refers to the current version. Update the patterns on each bump
+to match the current version.
 
-Cada `sed` tiene que tener **algo que sustituir**. La firma
-`mailproxy-mcp X.Y.Z |` solo está en `docs/configuracion.md`: si un `sed`
-la busca en un fichero donde no existe, no cambia nada y parece que sí.
+Each `sed` command must match text. The `mailproxy-mcp X.Y.Z |` signature
+exists only in the configuration reference. Searching another file silently
+leaves the signature unchanged.
 
-En macOS, `sed -i` necesita el sufijo vacío: `sed -i '' 's/.../.../'`. Sin
-él, `sed` se come el script como si fuera un fichero y falla.
+On macOS, `sed -i` needs an empty suffix: `sed -i '' 's/.../.../'`.
+Without it, `sed` treats the script as a filename and fails.
 
-El ejemplo de arriba es el de la **próxima** versión: el patrón tiene que ser
-la versión actual, o el `sed` no cambia nada y se publica una versión que
-dice ser la anterior. Lo mismo en el README y aquí: **los dos bloques tienen
-que apuntar al mismo número**. Si solo se actualiza uno, seguir el otro al
-pie de la letra publica una versión anterior (o deja la documentación sin
-cambiar).
+The example publishes the **next** version. Use the current version in the
+search patterns, or the substitutions will leave the old version in place.
+Keep the two blocks in the README and this file in sync. Updating only one
+can publish an older version or leave the documentation stale.
 
-La etiqueta dispara `.github/workflows/release.yml`, que pasa los tests,
-publica la imagen en GHCR y crea el Release. **Si los tests fallan, la imagen
-no se publica.** Así se detectó una fuga de correo real en el CHANGELOG: la
-1.1.0 rota nunca llegó al registro.
+The tag starts `.github/workflows/release.yml`, which runs the tests, publishes
+the image to GHCR, and creates the Release. Publication requires passing tests.
+The broken 1.1.0 never reached the registry because a test caught a real email
+address in the CHANGELOG.
 
-El cuerpo del Release **sale del CHANGELOG**: un paso del workflow extrae la
-sección de la versión y la compone con el bloque de la imagen. Las notas
-automáticas de GitHub no bastaban: no recogían los cambios ni la advertencia
-de que la imagen se publica sin probar en local. Si el CHANGELOG no tiene
-sección para la versión, el paso avisa y sigue, porque la imagen ya está
-publicada cuando llega y no debe ser él el que rompa.
+The workflow extracts the matching version section from the CHANGELOG and
+combines it with image details to create the Release body. GitHub's automatic
+notes missed changes and the warning about images published without local
+testing. If the section is missing, the workflow warns and continues because
+the image has already been published by then.
 
-La v2.0.1 se publicó así (2026-10-28): commit `bc2657b`, etiqueta `v2.0.1`,
-imagen en `ghcr.io/davidneyra2804/mcp-correo:2.0.1` y `latest`. Se publicó
-**sin Docker en la máquina**, así que la imagen no se ha arrancado ni probado
-en local. La v2.0.0 se publicó así (2026-10-27): commit `d7ebf0c`, etiqueta
-`v2.0.0`, imagen en `ghcr.io/davidneyra2804/mcp-correo:2.0.0` y `latest`.
+v2.0.1 was published on 2026-10-28 from commit `bc2657b` with tag `v2.0.1`.
+The image was published as `ghcr.io/davidneyra2804/mcp-correo:2.0.1` and
+`latest`. Docker was unavailable on the publishing machine, so the image
+was never started or tested locally. v2.0.0 was published on 2026-10-27
+from commit `d7ebf0c` with tag `v2.0.0` and image
+`ghcr.io/davidneyra2804/mcp-correo:2.0.0` and `latest`.
 
-**El repositorio se renombró a `mailproxy-mcp` el 2026-11-17.** La imagen se
-construye como `ghcr.io/${{ github.repository }}`, así que el nombre del
-paquete en el registro es el del repositorio: **las versiones anteriores a
-la 2.4.0 siguen en `ghcr.io/davidneyra2804/mcp-correo`**, que no se renombra
-ni admite redirecciones. La 2.4.0 y las siguientes salen en
-`ghcr.io/davidneyra2804/mailproxy-mcp`. Quien tenga fijado un `MCP_IMAGE`
-con la ruta vieja sigue tirando de la imagen vieja, que no se mueve: para
-cambiar hay que actualizar la variable y redesplegar.
+**The repository was renamed to `mailproxy-mcp` on 2026-11-17.** The image
+uses `ghcr.io/${{ github.repository }}`, so the registry package follows
+the repository name. Versions before 2.4.0 remain under
+`ghcr.io/davidneyra2804/mcp-correo`. GHCR keeps the existing package under
+that name and does not redirect it. Versions 2.4.0 and later use
+`ghcr.io/davidneyra2804/mailproxy-mcp`. Deployments with `MCP_IMAGE` pinned to
+the former path must update it and redeploy to use the new image.
 
-Lo que **no** se renombró, a propósito: la sal y el `info` de HKDF en
-`store/crypto.py`, el marcador `KEY_CHECK_PLAINTEXT` de `store/store.py` y
-`store/db.py`, y las rutas `/var/lib/mcp-correo` y `/var/log/mcp-correo`.
-Los tres primeros derivan o comprueban la clave con la que se cifran las
-contraseñas de las cuentas: renombrarlos dejaría la base de una instalación
-en marcha sin descifrar. Las rutas son las de los volúmenes Docker: si
-cambian, el contenedor arranca con una base vacía. **La**
+Preserve the HKDF salt and `info` in `store/crypto.py`, the
+`KEY_CHECK_PLAINTEXT` marker in `store/store.py` and `store/db.py`, and the
+paths `/var/lib/mcp-correo` and `/var/log/mcp-correo`. The first three
+values derive or verify the encryption key for account passwords. Changing
+them would prevent an existing deployment from decrypting its database.
+The paths are Docker volume mounts. Changing them would make the
+container start with an empty database.
 
-imagen sale solo para `linux/amd64`**: el workflow no lleva `setup-qemu` ni
-`platforms`, así que en un host arm64 hay que construirse en local o añadir
-multi-arch al workflow.
+The image targets **`linux/amd64` only**. The workflow does not include
+`setup-qemu` or `platforms`. On arm64, build locally or add multi-platform
+support to the workflow.
 
-### Lo que cuesta una release sin probarla
+### Test the release image
 
-La imagen que sale de la etiqueta **no se ha arrancado en la máquina que la
-publica**, y eso se repite porque la máquina de publicación no tiene Docker.
-La red de seguridad es `tests/test_docker.py`, que simula el `COPY` del
-Dockerfile y arranca el servidor desde esa copia: detecta los módulos que
-no llegan a la imagen, pero **no** que la imagen construya, ni que los
-permisos del contenedor sean correctos, ni que el volumen de datos funcione.
+The publishing machine lacks Docker, so it does not start the tagged image
+locally. `tests/test_docker.py` simulates the Dockerfile's `COPY` and starts
+the server with the copied files. It catches missing modules. Image builds,
+container permissions, and volume behavior require a real container test.
 
-Cuando una release toca el **esquema de la base** (una tabla o una columna
-nueva), esto pesa más: la migración se aplica al arrancar, y una base vieja
-en el volumen `/var/lib/mcp-correo` tiene que migrar bien. La migración
-está probada contra una base v1 en los tests, pero no contra una base real
-de una instalación en marcha.
+Schema changes need special attention. Migrations run at startup and must
+work with an existing database mounted at `/var/lib/mcp-correo`. The suite
+covers migration from a v1 test database. A deployed database needs separate
+verification.
 
-Por eso, antes de subir una versión que cambia el esquema, conviene
-arrancar la imagen con un volumen que tenga una base de la versión
-anterior y comprobar que la migración sale bien. Si no hay Docker en la
-máquina, hay que decirlo en el commit y en el Release: es mejor que el
-usuario lo sepa antes de redesplegar que descubrirlo con el contenedor
-parado.
+Before releasing a schema change, start the image with a volume containing a
+database from the previous version and verify the migration. If Docker is
+unavailable, record the gap in the commit and Release so users know before
+redeploying.
 
-### Comprobar que la publicación salió bien
+### Verify the release
 
-El workflow puede terminar en verde y la imagen no estar. Sin `gh` instalado,
-se mira por la API:
+A successful workflow alone does not show that the image is available.
+If `gh` is unavailable, check the API:
 
 ```bash
-# Los workflows de la etiqueta
+# The workflows triggered by the tag
 curl -s "https://api.github.com/repos/<repo>/actions/runs?per_page=5" \
   | python3 -c "import json,sys; [print(r['name'], r['status'], r['conclusion']) for r in json.load(sys.stdin)['workflow_runs'][:5]]"
 
-# El Release
+# The Release
 curl -s "https://api.github.com/repos/<repo>/releases/tags/v2.0.0"
 
-# Las etiquetas de imagen, con un token anónimo de solo lectura
+# The image tags, with an anonymous read-only token
 TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:<repo>:pull&service=ghcr.io" \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
 curl -s -H "Authorization: Bearer $TOKEN" \
   "https://ghcr.io/v2/<repo>/tags/list"
 
-# La etiqueta OCI de versión, leyendo el manifiesto publicado
+# The version OCI label, reading the published manifest
 curl -s -H "Authorization: Bearer $TOKEN" \
   -H "Accept: application/vnd.oci.image.index.v1+json" \
   "https://ghcr.io/v2/<repo>/manifests/2.0.0"
 ```
 
-Esto último es lo que garantiza que la imagen publicada lleva la versión
-correcta: `org.opencontainers.image.version` tiene que coincidir con
-`version.py`, y el `entrypoint` tiene que ser el actual. El manifiesto es un
-índice multi-arch: hay que bajar al manifiesto de `linux/amd64`, sacar su
-`config.digest` y leer **ese** blob. El `entrypoint` va en `config.Entrypoint`,
-no en las etiquetas.
+Verify that the published `org.opencontainers.image.version` label matches
+`version.py` and that the entrypoint is current. The manifest is an image
+index. Follow its `linux/amd64` manifest, get `config.digest`, and read that
+blob. The entrypoint is in `config.Entrypoint`.
 
-Sin `gh` no se puede editar un Release: para cambiar sus notas hay que
-re-ejecutar la etiqueta (`git tag -f` y `git push --force origin vX.Y.Z`), que
-vuelve a publicar la imagen. Por eso el cuerpo se compone en el workflow y no
-a mano.
+The workflow composes the Release body so it need not be edited by hand.
+Re-running the tag with `git tag -f` and `git push --force origin vX.Y.Z`
+also republishes the image.
 
-## La revisión
+## Review
 
-**Al terminar una implementación, antes del commit y del push, hay que
-pasar la skill `revision`.** No es opcional, y no es "si te acuerdas": la
-regla está aquí porque este fichero se inyecta en cada sesión. Lo único
-que se salta es lo que no toca comportamiento (un texto, un comentario).
+**Run the `revision` skill after implementing a change and before committing
+or pushing.** The rule is not optional for behavioral changes and is included
+here because this file is injected into every session. Prose and comments
+that leave behavior unchanged are exempt.
 
-Por qué existe: el error del `ALTER TABLE` que faltó en la migración, y
-el clon limpio que no se llegó a hacer, eran **validaciones que este
-propio fichero ya pedía**. El fallo no fue no saber la regla: fue no
-ejecutarla. Un revisor con contexto fresco y una lista de comprobaciones
-es una red que atrapa eso.
+A migration once omitted a required `ALTER TABLE` and the clean-clone check
+was skipped even though this file already required both checks. A reviewer
+with fresh context checks that the required validations were performed.
 
-La skill hace siete cosas:
+1. Prepare the complete diff with `git add -A` and `git diff --cached` so
+   the reviewer sees new files.
+2. **Run tests and lint** and pass their output to the reviewer.
+3. Start a reviewer with fresh context. The reviewer reads the diff and
+   the supplied output and reasons about them.
+4. Verify findings before making fixes.
+5. The primary agent tests in a **clean clone** and verifies that **each new
+   test fails without the fix**.
+6. Run one review. The primary agent decides whether to **repeat** it: a
+   review is not a cycle.
+7. Report what was reviewed, which findings were confirmed, and what remains
+   unverified.
 
-1. Prepara el diff completo (`git add -A` y `git diff --cached`), para
-   que el revisor vea también los ficheros nuevos.
-2. **Corre los tests y el lint**, y le pasa la salida al revisor.
-3. Lanza un subagente revisor, con contexto limpio, que **lee y razona**
-   sobre el diff y esa salida. No ejecuta nada.
-4. Obliga a **verificar los hallazgos** antes de arreglarlos.
-5. Asigna al agente principal las dos comprobaciones caras: el **clon
-   limpio** y que **el test nuevo falle sin el arreglo**.
-6. Deja decidir al agente principal si **repite**: una revisión no es un
-   ciclo.
-7. Obliga a **informar**: qué se revisó, qué era real y qué quedó sin
-   comprobar.
+The review budget is **ten minutes**. Early reviews took between 5 and 66
+minutes, largely due to cloning, installing environments, building mutation
+harnesses, and researching OpenCode. The reviewer uses the existing tree
+and supplied outputs. The primary agent performs mutations, as required
+by the skill. Platform research is outside the review scope.
 
-**La revisión tiene presupuesto: diez minutos.** Las primeras tardaron
-entre 5 y 66 minutos, y el tiempo no se iba en revisar, se iba en
-**verificar de más**: clonar, instalar un entorno de cero, construir
-arneses de pruebas de mutación e investigar la plataforma. Eso lo hace
-mejor el agente principal, en segundos. De ahí las tres reglas, que no son
-negociables: el revisor no clona ni instala nada, las mutaciones las hace
-el agente principal, y el revisor no investiga la plataforma. En la skill,
-la regla es "**El agente principal hace las mutaciones**".
+The reviewer works in the existing tree with editing, writing, patching,
+shell access, subagent launches, and Code Mode denied. A shell command allowlist
+would still allow writes through arguments such as `ruff check --fix`,
+`git diff --output=`, and `pytest --junit-xml=`. The primary agent supplies
+the completed test output.
 
-Y como el revisor trabaja en el árbol, **no puede escribir en los ficheros
-del proyecto**: no tiene shell, y la edición, la escritura, el parcheo, el
-lanzamiento de subagentes y Code Mode están denegados. Una allowlist de
-comandos **no es defendible**: cualquier subcomando con un argumento de
-escritura la cuela (`ruff check --fix`, `git diff --output=`, `pytest
---junit-xml=`...). Por eso el revisor no ejecuta nada: el agente principal
-le pasa la salida de las pruebas.
+OpenCode's own actions, such as creating a worktree or moving a session,
+are outside those denials and do not edit project files.
 
-(Las tools propias de OpenCode —crear un worktree, mover la sesión— no
-pasan por esas denegaciones. No tocan los ficheros del proyecto, pero
-conviene saberlo.)
+The review supplements tests and focuses on severe problems. It can assess
+only the code and evidence supplied. If the reviewer and primary agent use
+the same model, they can share blind spots.
 
-Lo que **no** es la revisión: no sustituye a las pruebas, no arregla lo
-que no sabe, no es independiente del modelo (si el revisor usa el mismo
-modelo, comparte los puntos ciegos) y no es una auditoría exhaustiva. Es
-una red, no una garantía.
+## Before merging to `main`
 
-## Antes de fusionar a `main`
+- [ ] Run `revision` and address confirmed findings.
+- [ ] Run tests locally and in a clean clone.
+- [ ] Start the image with `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`.
+- [ ] Run the smoke test with `python herramientas/humo.py`.
+- [ ] Confirm that documentation matches the code.
+- [ ] Verify that the tree contains only fictitious example data.
+- [ ] For configuration changes, update `.env.example`, Compose,
+      `docs/configuration.md`, and the CHANGELOG.
+- [ ] For changes to argument or response key names, document the catalog
+      refresh in the deployment section of the CHANGELOG.
+- [ ] For route changes, update `deploy/nginx-mcp.conf`. An exact
+      `location = /mcp` match returns 404 on account and domain routes.
+- [ ] For dashboard changes, update `docs/dashboard.md` and the README
+      with the new workflow.
+- [ ] For schema changes, test migration from the previous version and
+      confirm that startup succeeds with an old database.
+- [ ] For new columns, include an `ALTER TABLE` for existing databases.
+      `CREATE TABLE` applies only to new databases.
 
-- [ ] La revisión de la skill `revision` está pasada, y sus hallazgos
-      reales están corregidos.
-- [ ] Los tests pasan en local **y** en un clon limpio.
-- [ ] La imagen arranca: `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`.
-- [ ] La prueba de humo pasa: `python herramientas/humo.py`.
-- [ ] La documentación coincide con el código.
-- [ ] Ningún dato real en el árbol.
-- [ ] Si cambia el contrato de configuración, `.env.example`, el compose y
-      `docs/configuracion.md` actualizados, con el CHANGELOG al día.
-- [ ] Si cambia el **nombre** de un argumento o de una clave de la respuesta,
-      está dicho en el CHANGELOG, en la sección de despliegue, porque el
-      cliente cachea el catálogo y hay que refrescarlo.
-- [ ] Si cambian las rutas, el `deploy/nginx-mcp.conf` las sigue: con
-      `location = /mcp` (coincidencia exacta) las rutas por cuenta y por
-      dominio dan 404.
-- [ ] Si el panel cambia, `docs/dashboard.md` y el README cuentan el flujo
-      nuevo.
-- [ ] Si cambia el **esquema de la base**, la migración está probada desde
-      la versión anterior, y el arranque con una base vieja no se rompe.
-- [ ] Si la migración añade una **columna**, tiene su `ALTER TABLE`: el
-      `CREATE TABLE` solo vale para las bases nuevas.
+**If Docker is unavailable, say so in the commit and Release.**
+`tests/test_docker.py` simulates the Dockerfile's `COPY` and starts the
+server from that copy, which catches missing modules. Verifying the image
+build, container permissions, and the data volume requires a Docker run.
 
-**Si no hay Docker en la máquina, dilo en el commit y en el Release.** La
-prueba que simula el `COPY` del Dockerfile y arranca el servidor desde esa
-copia (`tests/test_docker.py`) detecta los módulos que no llegan a la
-imagen, pero **no** que la imagen construya, ni que los permisos del
-contenador sean los correctos, ni que el volumen de datos funcione. Es una
-red de seguridad, no una prueba de la imagen.
+## Pending work
 
-## Lo que está pendiente
-
-- **Multi-arch.** La imagen sale solo para `linux/amd64`. En un host arm64 hay
-  que construirla en local o añadir `setup-qemu` y `platforms` al workflow.
+- **Multi-platform images.** Published images target `linux/amd64`. On
+  arm64, build locally or add `setup-qemu` and `platforms` to the workflow.

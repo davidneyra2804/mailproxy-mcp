@@ -1,9 +1,9 @@
 # /etc/systemd/system/mailproxy-mcp.service
-# El proceso escucha solo en 127.0.0.1. nginx es quien publica HTTPS.
-# El despliegue con Portainer está en docker-compose.yml y no usa esta unidad.
+# The process listens on 127.0.0.1 only. nginx is what publishes HTTPS.
+# The Portainer deployment is in docker-compose.yml and does not use this unit.
 
 [Unit]
-Description=MCP de correo (lectura IMAP y escritura bajo confirmación)
+Description=Mail MCP server (IMAP reading and writing under confirmation)
 After=network-online.target
 Wants=network-online.target
 
@@ -13,14 +13,14 @@ User=mcpmail
 Group=mcpmail
 WorkingDirectory=/opt/mailproxy-mcp
 EnvironmentFile=/etc/mailproxy-mcp/env
-# --workers 1 es obligatorio: los tokens de confirmación y el tope diario
-# de envíos viven en la memoria de este proceso. Más workers los duplicarían.
+# --workers 1 is mandatory: the confirmation tokens and the daily send
+# limit live in this process's memory. More workers would duplicate them.
 ExecStart=/opt/mailproxy-mcp/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8765 --proxy-headers --forwarded-allow-ips=127.0.0.1 --workers 1
 Restart=on-failure
 RestartSec=5
 
-# Endurecimiento. Si el intérprete muriera con SIGSEGV al arrancar,
-# revisa MemoryDenyWriteExecute (algunas builds de CPython lo necesitan en no).
+# Hardening. If the interpreter dies with SIGSEGV at startup, check
+# MemoryDenyWriteExecute (some CPython builds need it off).
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
@@ -35,8 +35,8 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 CapabilityBoundingSet=
 ReadWritePaths=/var/log/mcp-correo
-# El panel y su base de datos son obligatorios: la base tiene que poder
-# escribirse. Ponla en /var/lib/mcp-correo y añade esa ruta aquí:
+# The panel and its database are mandatory: the database has to be
+# writable. Put it in /var/lib/mcp-correo and add that path here:
 # ReadWritePaths=/var/lib/mcp-correo
 MemoryMax=512M
 

@@ -1,11 +1,11 @@
 name: release
 
-# Publica la imagen y crea el Release de GitHub a partir de una etiqueta.
+# Publishes the image and creates the GitHub Release from a tag.
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 #
-# La etiqueta es la que manda: el número tiene que coincidir con
-# version.py o el workflow falla antes de publicar nada.
+# The tag is what counts: the number has to match version.py or the
+# workflow fails before publishing anything.
 
 on:
   push:
@@ -13,8 +13,8 @@ on:
       - "v*"
 
 permissions:
-  contents: write # crear el Release
-  packages: write # publicar la imagen en GHCR
+  contents: write # create the Release
+  packages: write # publish the image to GHCR
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Dependencias
+      - name: Dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Ruff
@@ -38,12 +38,12 @@ jobs:
       - name: Pytest
         run: pytest
 
-      - name: La etiqueta tiene que coincidir con la versión
+      - name: The tag has to match the version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           if [ "$VERSION" != "$(python -c 'from version import __version__; print(__version__)')" ]; then
-            echo "::error::La etiqueta $GITHUB_REF_NAME no coincide con version.py" >&2
+            echo "::error::Tag $GITHUB_REF_NAME does not match version.py" >&2
             exit 1
           fi
 
@@ -67,7 +67,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Notas del CHANGELOG
+      - name: CHANGELOG notes
         env:
           RELEASE_VERSION: ${{ env.VERSION }}
           RELEASE_IMAGE: ${{ env.IMAGE_NAME }}
@@ -84,22 +84,22 @@ jobs:
           encontrado = re.search(patron, texto, re.MULTILINE | re.DOTALL)
           seccion = encontrado.group(1).strip() if encontrado else ""
           if not seccion:
-              print(f"::warning::El CHANGELOG no tiene seccion para {version}")
+              print(f"::warning::The CHANGELOG has no section for {version}")
           lineas = [
-              "## Imagen",
+              "## Image",
               "",
               "```",
               image + ":" + version,
               "```",
               "",
-              "En Portainer, para usar la imagen publicada:",
+              "In Portainer, to use the published image:",
               "",
               "```",
               "MCP_IMAGE=" + image + ":" + version,
               "MCP_PULL_POLICY=always",
               "```",
               "",
-              "## Cambios",
+              "## Changes",
               "",
               seccion,
               "",
@@ -107,7 +107,7 @@ jobs:
           pathlib.Path("release-notes.md").write_text("\n".join(lineas), encoding="utf-8")
           PY
 
-      - name: Crear el Release
+      - name: Create the Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ env.VERSION }}

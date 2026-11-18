@@ -1,12 +1,13 @@
-"""Versión del servidor.
+"""Server version.
 
-Fuente de verdad única. `pyproject.toml` la repite porque el formato lo
-exige, y un test comprueba que las dos no se separen. La imagen la lleva
-como etiqueta OCI.
+Single source of truth. `pyproject.toml` repeats it because the format
+requires it, and a test checks that the two do not drift apart. The image
+carries it as an OCI label.
 
-El número sigue SemVer: MAJOR.MINOR.PATCH. MAJOR sube cuando se rompe
-la compatibilidad (una tool cambia de nombre, una variable de entorno
-deja de existir), MINOR cuando se añade algo, PATCH cuando se corrige.
+The number follows SemVer: MAJOR.MINOR.PATCH. MAJOR goes up when
+compatibility breaks (a tool changes its name, an environment variable
+stops existing), MINOR when something is added, PATCH when something is
+fixed.
 """
 
 from __future__ import annotations
