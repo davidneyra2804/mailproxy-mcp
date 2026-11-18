@@ -1,4 +1,4 @@
-/* El panel de mcp-correo.
+/* El panel de mailproxy-mcp.
  *
  * Sin framework: son cuatro rutas y una tabla. El JavaScript pide la
  * lista, la pinta y manda los cambios.
@@ -1240,7 +1240,7 @@ function editarCuenta(cuenta, dominioId) {
  * Aquí se hace lo mismo por si ese script no llegó a ejecutarse.
  */
 
-const CLAVE_TEMA = "mcp-correo-tema";
+const CLAVE_TEMA = "mailproxy-mcp-tema";
 const TEMAS = ["claro", "oscuro", "sistema"];
 
 function temaGuardado() {

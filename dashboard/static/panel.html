@@ -15,7 +15,7 @@
  * tema oscuro y luego salta al que el usuario había elegido. */
 (function () {
   try {
-    var guardado = window.localStorage.getItem("mcp-correo-tema");
+    var guardado = window.localStorage.getItem("mailproxy-mcp-tema");
     if (guardado === "claro" || guardado === "oscuro") {
       document.documentElement.setAttribute("data-tema", guardado);
     }

@@ -59,7 +59,7 @@ def rutas_api() -> set[tuple[str, str]]:
     """Las rutas de la API que declara la aplicación, con su método."""
     settings = ajustes()
     dashboard = load_dashboard_settings()
-    base = Database(Path(tempfile.gettempdir()) / "mcp-correo-test-rutas.db")
+    base = Database(Path(tempfile.gettempdir()) / "mailproxy-mcp-test-rutas.db")
     base.prepare()
     store = Store(base, Cipher(dashboard.key), settings)
     return rutas_de_la_api(crear_app(dashboard, store, settings))

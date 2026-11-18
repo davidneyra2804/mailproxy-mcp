@@ -469,7 +469,7 @@ def build_mcp(
     caps = write_capabilities(service.settings, service.accounts, dynamic=dynamic)
     title = "Correo laboral" if any(caps.values()) else "Correo laboral (solo lectura)"
     mcp = MCPServer(
-        "mcp-correo",
+        "mailproxy-mcp",
         title=title,
         instructions=INSTRUCTIONS,
         version=__version__,
@@ -1260,7 +1260,7 @@ def _bootstrap() -> BearerAuth:
         # aparece y no se sabe por qué.
         logger.info("Por qué están apagadas: %s", "; ".join(motivos))
     logger.info(
-        "mcp-correo %s | Configuración: variables de entorno. Cuentas: %s",
+        "mailproxy-mcp %s | Configuración: variables de entorno. Cuentas: %s",
         __version__,
         ", ".join(sorted(runtime.accounts)),
     )

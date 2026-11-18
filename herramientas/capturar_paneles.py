@@ -60,7 +60,7 @@ def _preparar(origen: Path) -> str:
     finally:
         sys.path.pop(0)
 
-    base_dir = Path(tempfile.mkdtemp(prefix="mcp-correo-capturas-"))
+    base_dir = Path(tempfile.mkdtemp(prefix="mailproxy-mcp-capturas-"))
     base = Database(base_dir / "cuentas.db")
     base.prepare()
     settings = ajustes()

@@ -1,4 +1,4 @@
-# mcp-correo
+# mailproxy-mcp
 
 **Un servidor [MCP](https://modelcontextprotocol.io) que da a un asistente de IA acceso a buzones IMAP/SMTP de terceros, sin que el asistente pueda escribir sin que una persona lo autorice.** El envío directo, para rutinas automáticas, es la excepción opt-in.
 
@@ -11,7 +11,7 @@ tiene permiso para leerlo.
 Muchos agentes solo pueden salir a Internet por HTTPS, el puerto 443. No abren
 IMAP (993) ni SMTP (465 o 587), así que no llegan al buzón por sí solos.
 
-mcp-correo corre en un servidor propio. El cliente del asistente se conecta a
+mailproxy-mcp corre en un servidor propio. El cliente del asistente se conecta a
 ese proceso por HTTPS. El proceso, en la red donde sí hay correo, habla IMAP y
 SMTP. El asistente no guarda la contraseña del buzón: la guarda este servidor,
 y el cliente solo presenta un Bearer.
@@ -356,7 +356,7 @@ flowchart LR
   asistente[Asistente]
   cliente[Cliente MCP]
   proxy[Proxy TLS]
-  mcp[mcp-correo]
+  mcp[mailproxy-mcp]
   panel[Panel]
   sqlite[(SQLite)]
   imap[Servidor IMAP]
@@ -372,7 +372,7 @@ flowchart LR
 ```
 
 El asistente solo necesita el puerto 443 hacia el proxy. IMAP y SMTP salen de
-mcp-correo, en la máquina donde el buzón es alcanzable. La lectura usa
+mailproxy-mcp, en la máquina donde el buzón es alcanzable. La lectura usa
 `EXAMINE`. La escritura abre la carpeta en lectura-escritura solo dentro de la
 operación que lo necesita. El `From` de un envío es el usuario de la cuenta.
 
@@ -458,7 +458,7 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
 
 Las cuentas se dan de alta después, desde el panel: el compose no declara
-ninguna. Sin `MCP_IMAGE`, la imagen construida se llama `mcp-correo:local` y
+ninguna. Sin `MCP_IMAGE`, la imagen construida se llama `mailproxy-mcp:local` y
 no está en ningún registro.
 
 La base de datos va en el volumen `data`, que el compose base declara y
@@ -527,9 +527,14 @@ overlay del túnel en *Additional paths*.
 La imagen publicada se usa sin reconstruir:
 
 ```
-MCP_IMAGE=ghcr.io/davidneyra2804/mcp-correo:2.3.0
+MCP_IMAGE=ghcr.io/davidneyra2804/mailproxy-mcp:2.4.0
 MCP_PULL_POLICY=always
 ```
+
+Antes de la 2.4.0 la imagen se publicó con el nombre anterior del
+repositorio: `ghcr.io/davidneyra2804/mcp-correo:<versión>`. Ese paquete sigue
+en el registro y esas versiones se siguen podendo tirar de él; a partir de
+la 2.4.0 la ruta es la de arriba.
 
 Con `MCP_PULL_POLICY` vacío, el compose construye la imagen localmente y
 `audit-rotate` usa esa misma imagen sin volver a construirla.
@@ -683,13 +688,13 @@ Release con las notas de los commits.
 
 ```bash
 # Publicar una versión
-sed -i 's/__version__ = ".*"/__version__ = "2.3.1"/' version.py
-sed -i 's/^version = ".*"/version = "2.3.1"/' pyproject.toml
-sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.3.1/' Dockerfile
-sed -i 's/mcp-correo 2\.3\.0 |/mcp-correo 2.3.1 |/' docs/configuracion.md
-sed -i 's|mcp-correo:2\.3\.0|mcp-correo:2.3.1|' README.md
-git commit -am "version 2.3.1"
-git tag v2.3.1 && git push origin v2.3.1
+sed -i 's/__version__ = ".*"/__version__ = "2.4.1"/' version.py
+sed -i 's/^version = ".*"/version = "2.4.1"/' pyproject.toml
+sed -i 's/ARG MCP_VERSION=.*/ARG MCP_VERSION=2.4.1/' Dockerfile
+sed -i 's/mailproxy-mcp 2\.4\.0 |/mailproxy-mcp 2.4.1 |/' docs/configuracion.md
+sed -i 's|mailproxy-mcp:2\.4\.0|mailproxy-mcp:2.4.1|' README.md
+git commit -am "version 2.4.1"
+git tag v2.4.1 && git push origin v2.4.1
 ```
 
 Los dos últimos `sed` no son opcionales: un test comprueba que la

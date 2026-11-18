@@ -90,7 +90,7 @@ def _guia(ruta: str, token: str) -> dict:
 
 
 def main() -> int:
-    tmp = Path(tempfile.mkdtemp(prefix="mcp-correo-e2e-"))
+    tmp = Path(tempfile.mkdtemp(prefix="mailproxy-mcp-e2e-"))
     base = tmp / "cuentas.db"
     auditoria = tmp / "audit.jsonl"
     entorno = {

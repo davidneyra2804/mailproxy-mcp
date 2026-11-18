@@ -62,7 +62,7 @@ def main() -> int:
                 color = pagina.evaluate("getComputedStyle(document.body).color")
                 esquema = pagina.evaluate("getComputedStyle(document.documentElement).colorScheme")
                 attr = pagina.evaluate("document.documentElement.getAttribute('data-tema')")
-                guardado = pagina.evaluate("localStorage.getItem('mcp-correo-tema')")
+                guardado = pagina.evaluate("localStorage.getItem('mailproxy-mcp-tema')")
                 marca = pagina.evaluate(
                     "document.querySelector('[data-tema-opcion].activo')?.dataset.temaOpcion"
                 )

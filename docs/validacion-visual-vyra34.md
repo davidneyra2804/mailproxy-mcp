@@ -49,7 +49,7 @@ y no se ha inventado una captura «antes claro».
 
 - **Selector** en la cabecera: Claro / Oscuro / Sistema, con `aria-pressed`
   para decir cuál está activo.
-- **Persistencia** en `localStorage` (`mcp-correo-tema`). El atributo se
+- **Persistencia** en `localStorage` (`mailproxy-mcp-tema`). El atributo se
   aplica en la cabeza del HTML, antes de pintar, para que no haya un
   destello del tema equivocado.
 - **«Sistema»** no pone atributo: manda la media query. El panel sigue al

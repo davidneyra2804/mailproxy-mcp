@@ -55,7 +55,7 @@ def _preparar() -> tuple[str, int]:
     from store.store import Store
     from tests.ayuda import ajustes
 
-    base_dir = Path(tempfile.mkdtemp(prefix="mcp-correo-cuentas-"))
+    base_dir = Path(tempfile.mkdtemp(prefix="mailproxy-mcp-cuentas-"))
     base = Database(base_dir / "cuentas.db")
     base.prepare()
     settings = ajustes()

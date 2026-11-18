@@ -59,7 +59,7 @@ def lanzar(
     def _servir() -> None:
         servidor.run(sockets=sockets)
 
-    hilo = threading.Thread(target=_servir, name="mcp-correo-panel", daemon=True)
+    hilo = threading.Thread(target=_servir, name="mailproxy-mcp-panel", daemon=True)
     hilo.start()
     logger.info("Panel en marcha: http://%s:%s", dashboard.bind_host, dashboard.bind_port)
     return hilo

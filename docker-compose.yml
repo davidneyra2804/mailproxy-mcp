@@ -12,10 +12,10 @@
 # En Portainer se añaden como "Additional paths", que es lo mismo que
 # pasar varios -f a docker compose.
 #
-# La imagen local se llama mcp-correo:local y no está en un registro.
+# La imagen local se llama mailproxy-mcp:local y no está en un registro.
 # Portainer ejecuta `docker compose pull` antes de `up`: pull_policy
 # build/never hace que ese pull no la busque.
-# Imagen ya publicada: MCP_IMAGE=registro/mcp-correo:1 y MCP_PULL_POLICY=always.
+# Imagen ya publicada: MCP_IMAGE=registro/mailproxy-mcp:1 y MCP_PULL_POLICY=always.
 #
 # El contenedor escucha en 0.0.0.0:8765 porque el proxy o el túnel llegan
 # por la red de Docker. El puerto del host sale solo en 127.0.0.1.
@@ -33,8 +33,8 @@
 
 services:
   mcp:
-    container_name: mcp-correo
-    image: ${MCP_IMAGE:-mcp-correo:local}
+    container_name: mailproxy-mcp
+    image: ${MCP_IMAGE:-mailproxy-mcp:local}
     pull_policy: ${MCP_PULL_POLICY:-build}
     build:
       context: .
@@ -133,11 +133,11 @@ services:
     # Etiquetas Traefik, opcionales. Sustituye el dominio y la red del proxy.
     # labels:
     #   - "traefik.enable=true"
-    #   - "traefik.http.routers.mcp-correo.rule=Host(`mcp.example.com`)"
-    #   - "traefik.http.routers.mcp-correo.entrypoints=websecure"
-    #   - "traefik.http.routers.mcp-correo.tls=true"
-    #   - "traefik.http.routers.mcp-correo.tls.certresolver=letsencrypt"
-    #   - "traefik.http.services.mcp-correo.loadbalancer.server.port=8765"
+    #   - "traefik.http.routers.mailproxy-mcp.rule=Host(`mcp.example.com`)"
+    #   - "traefik.http.routers.mailproxy-mcp.entrypoints=websecure"
+    #   - "traefik.http.routers.mailproxy-mcp.tls=true"
+    #   - "traefik.http.routers.mailproxy-mcp.tls.certresolver=letsencrypt"
+    #   - "traefik.http.services.mailproxy-mcp.loadbalancer.server.port=8765"
     #   - "traefik.docker.network=proxy"
     # networks:
     #   - default
@@ -156,10 +156,10 @@ services:
           memory: 64M
 
   audit-rotate:
-    container_name: mcp-correo-audit-rotate
-    image: ${MCP_IMAGE:-mcp-correo:local}
+    container_name: mailproxy-mcp-audit-rotate
+    image: ${MCP_IMAGE:-mailproxy-mcp:local}
     # Misma imagen que mcp. Sin build propio: se construye una sola vez.
-    # never: el pull de Portainer no busca mcp-correo:local en un registro.
+    # never: el pull de Portainer no busca mailproxy-mcp:local en un registro.
     pull_policy: ${MCP_PULL_POLICY:-never}
     depends_on:
       - mcp

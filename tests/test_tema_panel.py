@@ -55,9 +55,9 @@ def test_el_tema_se_pone_antes_de_pintar() -> None:
     oscuro y luego saltaría al elegido: un parpadeo que se nota.
     """
     cabeza = HTML[: HTML.index("</head>")]
-    assert "mcp-correo-tema" in cabeza
+    assert "mailproxy-mcp-tema" in cabeza
     # El script en línea está en la cabeza, no al final del body.
-    assert cabeza.index("mcp-correo-tema") < HTML.index("<body>")
+    assert cabeza.index("mailproxy-mcp-tema") < HTML.index("<body>")
 
 
 def test_el_tema_sistema_no_pone_atributo() -> None:
