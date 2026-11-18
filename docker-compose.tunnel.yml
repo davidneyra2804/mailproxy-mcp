@@ -1,32 +1,34 @@
-# Exposición por Cloudflare Tunnel. Añade el servicio cloudflared, que habla
-# con mcp por la red del stack (http://mcp:8765) y sale a Internet por
-# conexiones salientes. No hace falta abrir ningún puerto en el host.
+# Exposure through Cloudflare Tunnel. Adds the cloudflared service, which
+# talks to mcp over the stack network (http://mcp:8765) and reaches the
+# Internet through outgoing connections. No port has to be opened on the
+# host.
 #
-# No necesitas Caddy: el TLS lo termina el edge de Cloudflare y cloudflared
-# habla HTTP plano con el contenedor. Si prefieres TLS propio con Let's
-# Encrypt, mira docker-compose.proxy.yml.
+# You do not need Caddy: TLS is terminated at the Cloudflare edge and
+# cloudflared speaks plain HTTP with the container. If you prefer your own
+# TLS with Let's Encrypt, see docker-compose.proxy.yml.
 #
-# En Portainer: Stacks → Add stack → Repository, y en "Additional paths"
-# añade este fichero. O en la máquina:
+# In Portainer: Stacks → Add stack → Repository, and in "Additional paths"
+# add this file. Or on the machine:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
 #
-# En el panel de Cloudflare, la ruta publicada apunta a http://mcp:8765.
-# MCP_PUBLIC_HOST tiene que ser el hostname público del túnel: cloudflared
-# reenvía la cabecera Host del cliente y el transporte MCP la valida.
+# In the Cloudflare dashboard, the published route points to
+# http://mcp:8765. MCP_PUBLIC_HOST has to be the public hostname of the
+# tunnel: cloudflared forwards the client's Host header and the MCP
+# transport validates it.
 #
-# El puerto que publica el compose base en 127.0.0.1 no molesta: es
-# loopback y sirve para depurar con curl. Si prefieres que no exista,
-# quita el bloque ports: del servicio mcp en docker-compose.yml.
+# The port the base compose publishes on 127.0.0.1 is harmless: it is
+# loopback and useful for debugging with curl. If you prefer it not to
+# exist, remove the ports: block from the mcp service in docker-compose.yml.
 #
-# El túnel solo lleva el MCP (http://mcp:8765). El panel (8766) no se
-# publica por aquí: su puerto sale en loopback y, si lo expusieras, el
-# panel —que ve las contraseñas de las cuentas— quedaría detrás del mismo
-# filtro de Access que el MCP.
+# The tunnel carries only the MCP server (http://mcp:8765). The panel (8766)
+# is not published this way: its port comes out on loopback, and if you
+# exposed it, the panel —which sees the account passwords— would sit behind
+# the same Access filter as the MCP server.
 #
-# Cloudflare Access es opcional. Con un Service Token, el cliente MCP
-# envía CF-Access-Client-Id y CF-Access-Client-Secret además del Bearer.
-# Sin Access, el único secreto es el Bearer del MCP.
+# Cloudflare Access is optional. With a Service Token, the MCP client sends
+# CF-Access-Client-Id and CF-Access-Client-Secret in addition to the Bearer.
+# Without Access, the only secret is the MCP Bearer.
 
 services:
   cloudflared:
@@ -34,18 +36,18 @@ services:
     image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-latest}
     pull_policy: missing
     restart: unless-stopped
-    # La imagen ya trae --no-autoupdate en su ENTRYPOINT.
+    # The image already ships --no-autoupdate in its ENTRYPOINT.
     command:
       - tunnel
       - --protocol
       - ${CLOUDFLARE_TUNNEL_PROTOCOL:-quic}
       - run
       - --token
-      - ${CLOUDFLARE_TUNNEL_TOKEN:?Define CLOUDFLARE_TUNNEL_TOKEN en las variables del stack}
+      - ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in the stack variables}
     depends_on:
       - mcp
-    # El conector es un cliente de red: no necesita root, pero sí puede
-    # escribir estado en su home. De ahí que no lleve read_only.
+    # The connector is a network client: it does not need root, but it can
+    # write state in its home. That is why it does not carry read_only.
     cap_drop:
       - ALL
     security_opt:

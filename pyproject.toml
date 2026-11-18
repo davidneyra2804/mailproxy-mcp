@@ -1,13 +1,13 @@
 [project]
 name = "mailproxy-mcp"
 version = "2.4.0"
-description = "Servidor MCP de correo: lectura IMAP y escritura bajo confirmación"
+description = "Mail MCP server: IMAP reading and writing under confirmation"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# El runner de Actions activa PYTHONSAFEPATH y no mete el directorio
-# de trabajo en sys.path. Sin esto, `import audit` falla solo en CI.
+# The Actions runner sets PYTHONSAFEPATH and does not add the working
+# directory to sys.path. Without this, `import audit` fails in CI only.
 pythonpath = ["."]
 
 [tool.ruff]

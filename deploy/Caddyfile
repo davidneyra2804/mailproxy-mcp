@@ -1,10 +1,11 @@
-# Proxy opcional del perfil "tls". Por defecto el certificado es interno,
-# así el stack no pide un certificado público al arrancar.
-# Para el dominio real, borra la línea "tls internal" y define MCP_PUBLIC_HOST
-# con un nombre que resuelva a este servidor (Caddy usará Let's Encrypt).
+# Optional proxy for the "tls" profile. By default the certificate is
+# internal, so the stack does not request a public certificate at startup.
+# For the real domain, remove the "tls internal" line and define
+# MCP_PUBLIC_HOST with a name that resolves to this server (Caddy will use
+# Let's Encrypt).
 #
-# Solo el MCP: el panel (8766) no se expone por aquí. Proxyea el prefijo
-# entero, así que /mcp, /mcp/<cuenta> y /mcp/<dominio> funcionan.
+# MCP server only: the panel (8766) is not exposed here. It proxies the
+# whole prefix, so /mcp, /mcp/<account> and /mcp/<domain> all work.
 
 {$MCP_PUBLIC_HOST:localhost} {
 	tls internal

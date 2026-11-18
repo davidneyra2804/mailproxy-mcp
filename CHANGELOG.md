@@ -1,681 +1,462 @@
 # Changelog
 
-Todas las novedades de mailproxy-mcp.
+All notable changes to mailproxy-mcp.
 
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
-el versionado es [SemVer](https://semver.org/lang/es/).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+versioning follows [SemVer](https://semver.org/lang/en/).
 
-## [No publicado]
+## [Unpublished]
 
 ## [2.4.0] — 2026-11-17
 
-El repositorio se llama `mailproxy-mcp`. Antes se llamaba `mcp-correo`, y el
-nombre estaba en el sitio equivocado: el proyecto no es solo de correo
-corporativo, sino un servidor MCP de buzones que se despliega como un proxy
-de correo. Con el nombre nuevo, el repositorio y la imagen dicen lo mismo
-que el servicio al que dan acceso.
+The repository is named `mailproxy-mcp`. It used to be called `mcp-correo`, and the
+name was in the wrong place: the project is not only about corporate email,
+but an MCP server for mailboxes that is deployed as a mail proxy. With the
+new name, the repository and the image say the same thing as the service they
+give access to.
 
 ### Changed
 
-- **El repositorio, el paquete de Python y el servidor MCP se llaman
-  `mailproxy-mcp`.** El nombre del servidor en el handshake MCP cambia de
-  `mcp-correo` a `mailproxy-mcp`. A los clientes que lo apuntan por URL no
-  les afecta: el nombre solo se reenvía en el `initialize`.
+- **The repository, the Python package, and the MCP server are named
+  `mailproxy-mcp`.** The server name in the MCP handshake changes from
+  `mcp-correo` to `mailproxy-mcp`. Clients that point to it by URL are not
+  affected: the name is only forwarded in the `initialize`.
 
-- **La imagen se publica en otra ruta de GHCR.** La imagen se construye como
-  `ghcr.io/${{ github.repository }}`, así que el paquete del registro es el
-  del repositorio, y **GHCR no renombra los paquetes ni admite
-  redirecciones**. Las versiones hasta la 2.3.0 siguen en
-  `ghcr.io/davidneyra2804/mcp-correo:<versión>`, tal cual; la 2.4.0 y las
-  siguientes salen en `ghcr.io/davidneyra2804/mailproxy-mcp:<versión>`. Si
-  tienes `MCP_IMAGE` fijado a la ruta vieja, sigue funcionando: la imagen
-  no se mueve. Para cambiar hay que actualizar la variable y redesplegar.
+- **The image is published at a different GHCR path.** The image is built as
+  `ghcr.io/${{ github.repository }}`, so the registry package is the one
+  for the repository, and **GHCR does not rename packages or support
+  redirects**. Versions up to 2.3.0 remain at
+  `ghcr.io/davidneyra2804/mcp-correo:<version>`, unchanged; 2.4.0 and
+  later are published at `ghcr.io/davidneyra2804/mailproxy-mcp:<version>`. If
+  you have `MCP_IMAGE` pinned to the old path, it keeps working: the image
+  does not move. To change it, you must update the variable and redeploy.
 
 ### Removed
 
-- **El nombre `mcp-correo` desaparece del código, la documentación y el
-  despliegue**: en el nombre del paquete de Python, el del servidor MCP, los
-  nombres de contenedor, la unidad de systemd (`deploy/mailproxy-mcp.service`)
-  y las rutas del despliegue con systemd (`/opt/mailproxy-mcp`,
-  `/etc/mailproxy-mcp`).
+- **The name `mcp-correo` is removed from the code, the documentation, and the
+  deployment**: in the Python package name, the MCP server name, the container
+  names, the systemd unit (`deploy/mailproxy-mcp.service`), and the systemd deployment paths
+  (`/opt/mailproxy-mcp`, `/etc/mailproxy-mcp`).
 
 ### Fixed
 
-- **Los datos no se tocan.** Tres cosas conservan el nombre anterior a
-  propósito, porque tocarlas rompe una instalación en marcha:
+- **Data is not touched.** Three things keep the previous name on purpose,
+  because changing them breaks a running installation:
 
-  - La sal y el `info` de HKDF en `store/crypto.py`: derivan la clave con la
-    que se cifran las contraseñas de las cuentas. Cambiarlos deja la base
-    sin descifrar.
-  - El marcador `KEY_CHECK_PLAINTEXT` de `store/store.py` y `store/db.py`:
-    es el valor cifrado que comprueba que la clave del panel es la de esta
-    base.
-  - Las rutas `/var/lib/mcp-correo` y `/var/log/mcp-correo`: son los puntos
-    de montaje de los volúmenes Docker. Si cambian, el contenedor arranca
-    con una base vacía y el panel mostraría cero cuentas.
+  - The salt and the HKDF `info` in `store/crypto.py`: they derive the key
+    used to encrypt the account passwords. Changing them leaves the database
+    undecryptable.
+  - The `KEY_CHECK_PLAINTEXT` marker of `store/store.py` and `store/db.py`:
+    it is the encrypted value that verifies the dashboard key matches this
+    database.
+  - The `/var/lib/mcp-correo` and `/var/log/mcp-correo` paths: they are the mount points
+    of the Docker volumes. If they change, the container starts with an empty
+    database and the dashboard would show zero accounts.
 
 ## [2.3.0] — 2026-11-17
 
-Los argumentos de las tools se aceptan también escritos: el puente MCP
-entrega los números como texto y las llamadas morían antes de llegar al
-servidor.
+Tool arguments are also accepted as strings: the MCP bridge delivers numbers
+as text, and the calls were failing before reaching the server.
 
 ### Changed
 
-- **Los argumentos de las tools se aceptan también escritos.** Un cliente
-  MCP puede entregar un argumento en su tipo o escrito: `limit: 20` o
-  `"20"`, `uids: [21055]` o `"21055,21051"`. Con el tipo cerrado, esas
-  llamadas morían en el puente del cliente, antes de llegar al servidor, y
-  el trabajo se quedaba sin hacer.
+- **Tool arguments are also accepted as strings.** An MCP client may deliver an
+  argument in its type or as a string: `limit: 20` or
+  `"20"`, `uids: [21055]` or `"21055,21051"`. With a strict type, those
+  calls failed in the client's bridge, before reaching the server, and the
+  work was never done.
 
-  El puente MCP de OpenMausBot (el que usa el equipo de correo) valida los
-  argumentos de cada tool contra el esquema que publica el servidor, con
-  Ajv **sin coerción** (`server/mcp-schema-validator.ts`): un argumento que
-  llega como texto se rechaza con «must be integer» o «must be boolean», y la
-  llamada no sale del puente. El puente de las apps conectadas sí ajusta los
-  tipos (`server/connector-arguments.ts`); el de las tools de MCP no. La
-  corrección de raíz es de ese puente: si el validador coerced, el servidor
-  recibiría el `20` como número y esta mejora no habría hecho falta. Hasta
-  entonces, el servidor entiende las dos formas.
+  The OpenMausBot MCP bridge (the one used by the mail team) validates each
+  tool's arguments against the schema published by the server, using Ajv
+  **without coercion** (`server/mcp-schema-validator.ts`): an argument that
+  arrives as text is rejected with "must be integer" or "must be boolean", and
+  the call does not leave the bridge. The bridge for connected apps does adjust
+  types (`server/connector-arguments.ts`); the one for MCP tools does not. The
+  root fix belongs to that bridge: if the validator coerced, the server would
+  receive the `20` as a number and this improvement would not have been
+  needed. Until then, the server accepts both forms.
 
-  Por la vía genérica de MCP (`mcp_call_tool`) el puente convierte a texto
-  todo argumento que no sea texto, incluidos los que van dentro de un
-  arreglo: `uids: [21055]` llega como `["21055"]` y el validador lo
-  rechaza con «uids.0: must be integer». Por eso la rama de arreglo
-  declara `items` como unión de entero y texto, y la forma textual se
-  declara en todos los tipos afectados, no solo en los números.
+  Through the generic MCP path (`mcp_call_tool`), the bridge converts to text
+  every argument that is not text, including those inside an array: `uids: [21055]` arrives as `["21055"]` and the validator
+  rejects it with "uids.0: must be integer". For that reason, the array branch
+  declares `items` as a union of integer and string, and the string form
+  is declared for all affected types, not only for numbers.
 
-  Lo que acepta ahora cada argumento:
+  What each argument accepts now:
 
-  | Argumento | Formas |
+  | Argument | Forms |
   | --- | --- |
   | `uids` (`mark_read`, `mark_unread`, `prepare_delete`) | `[21055, 21051]`, `["21055", "21051"]`, `"[21055,21051]"`, `"21055,21051"`, `"21055"` |
-  | `uid`, `index`, `limit`, `max_chars` | `20` o `"20"` |
-  | `unseen`, `permanent` | `true`/`false` o `"true"`/`"false"`/`"1"`/`"0"` |
-  | `to`, `cc`, `bcc` | `["ana@example.com"]` o `"ana@example.com"` |
-  | `attachments` | `[{"filename": "nota.txt", ...}]` o su texto JSON |
+  | `uid`, `index`, `limit`, `max_chars` | `20` or `"20"` |
+  | `unseen`, `permanent` | `true`/`false` or `"true"`/`"false"`/`"1"`/`"0"` |
+  | `to`, `cc`, `bcc` | `["ana@example.com"]` or `"ana@example.com"` |
+  | `attachments` | `[{"filename": "nota.txt", ...}]` or its JSON text |
 
-  Un valor que no se entiende **no** se descarta en silencio: se rechaza
-  con un error que dice qué se recibió y qué formas validas hay. Marcar un
-  correo que no se marcó, sin avisar, es peor que fallar.
+A value that is not understood is **not** silently discarded: it is rejected with an error that states what was received and which valid forms exist. Marking an email that was not marked, without notice, is worse than failing.
 
-  Los nombres de los argumentos no cambian y los tipos de siempre siguen
-  valiendo: un cliente que ya conoce el catálogo sigue funcionando sin
-  refrescarlo. Lo que cambia es el esquema publicado, que ahora declara la
-  unión (`anyOf`) para que el cliente vea las formas nuevas.
+Argument names do not change, and the existing types remain valid: a client that already knows the catalog keeps working without refreshing it. What changes is the published schema, which now declares the union (`anyOf`) so that the client can see the new forms.
 
-### Despliegue
+### Deployment
 
-- Hay que **refrescar el catálogo de las tools** en el cliente MCP: el
-  esquema publicado cambia, porque los tipos afectados ahora declaran la
-  unión (`anyOf`) entre el tipo y su forma textual. Los **nombres** de los
-  argumentos y de las claves de la respuesta no cambian, así que un cliente
-  con el catálogo viejo sigue funcionando.
-- La imagen se ha publicado **sin construir ni probar en local**: la máquina
-  de publicación no tiene Docker. `tests/test_docker.py` comprueba que los
-  módulos que tienen que entrar en la imagen estén, pero no que la imagen
-  construya, ni que los permisos del contenedor sean los correctos, ni que
-  el volumen de datos funcione.
-- La imagen sale **solo para `linux/amd64`**: el workflow no lleva
-  `setup-qemu` ni `platforms`. En un host arm64 hay que construirla en
-  local.
+- You need to **refresh the tools catalog** in the MCP client: the published schema changes, because the affected types now declare the union (`anyOf`) between the type and its textual form. The **names** of the arguments and of the response keys do not change, so a client with the old catalog keeps working.
+- The image has been published **without being built or tested locally**: the publishing machine does not have Docker. `tests/test_docker.py` checks that the modules that must go into the image are present, but not that the image builds, nor that the container permissions are correct, nor that the data volume works.
+- The image is published **only for `linux/amd64`**: the workflow does not include `setup-qemu` or `platforms`. On an arm64 host it must be built locally.
 
 ## [2.2.0] — 2026-11-05
 
-El panel de cuentas vuelve a ser usable: «Cancelar» cierra el diálogo y el
-menú de tres puntos deja de recortarse.
+The accounts panel is usable again: "Cancel" closes the dialog and the three-dot menu no longer gets clipped.
 
 ### Added
 
-- **Botones para copiar la URL del MCP y el token de cada cuenta.** En el
-  panel, cada cuenta tiene dos botones nuevos:
+- **Buttons to copy each account's MCP URL and token.** In the panel, each account has two new buttons:
 
-  - **Copiar URL** pone en el portapapeles la URL completa de esa cuenta,
-    con el host público (`https://mcp.example.com/mcp/ada@corp.example.com`),
-    lista para pegar en un cliente MCP.
-  - **Copiar token** pone el token de acceso **vigente** de esa cuenta. No
-    lo renueva: la operación es una lectura, y el token copiado sigue
-    valiendo en la ruta de la cuenta.
+  - **Copy URL** puts the full URL of that account on the clipboard, using the public host (`https://mcp.example.com/mcp/ada@corp.example.com`), ready to paste into an MCP client.
+  - **Copy token** puts that account's **current** access token on the clipboard. It does not renew it: the operation is a read, and the copied token remains valid on the account's path.
 
-  Los dos botones son `<button>` de verdad, con `aria-label` y `title`,
-  funcionan con el teclado y tienen foco visible. Al copiar, el botón
-  confirma con «Copiado» y el aviso del panel (que es `role="status"`)
-  lo anuncia a los lectores de pantalla. Si el portapapeles no está
-  disponible, el panel **no** dice «Copiado»: avisa y enseña el valor
-  para copiarlo a mano.
+  Both buttons are truly `<button>`, with `aria-label` and `title`, work with the keyboard and have a visible focus. When copying, the button confirms with "Copied" and the panel notice (which is `role="status"`) announces it to screen readers. If the clipboard is not available, the panel does **not** say "Copied": it shows a warning and displays the value so it can be copied manually.
 
-  La URL y el token se piden a una ruta nueva del panel,
-  `GET /api/accounts/{id}/credenciales` (también en inglés como
-  `/api/accounts/{id}/credentials`). **El modelo de seguridad no
-  cambia**: el token ya se guardaba en la base en claro y ahora se lee.
-  La contraseña sigue cifrada con `MCP_DASHBOARD_KEY`, y la lista de
-  dominios sigue sin enseñar ningún token: solo dice de dónde sale el
-  token que abre cada cuenta. La lectura queda auditada
-  (`dashboard_read_account_credentials`), con el valor tapado: a la
-  auditoría solo va el origen.
+  The URL and token are requested from a new panel route, `GET /api/accounts/{id}/credenciales` (also in English as `/api/accounts/{id}/credentials`). **The security model does not change**: the token was already stored in plaintext in the database and is now read. The password remains encrypted with `MCP_DASHBOARD_KEY`, and the domain list still does not show any token: it only says where the token that opens each account comes from. The read is audited (`dashboard_read_account_credentials`), with the value masked: only the source goes to the audit log.
 
-  El contrato de las rutas del MCP pasa a un módulo propio (`rutas.py`),
-  que usan el servidor y el panel: así la URL que se copia no puede
-  desviarse de la que el servidor acepta.
+  The contract for the MCP routes moves to its own module (`rutas.py`), which both the server and the panel use: this way the URL that is copied cannot drift from the one the server accepts.
 
-- **El token vigente de una cuenta, sin rotarlo.** La lectura del panel
-  devuelve el token que el servidor acepta de verdad para esa cuenta: el
-  suyo propio si lo tiene, y el de su dominio si no. Es una lectura: no
-  rota, no invalida el anterior y no cambia el modelo de seguridad.
+- **An account's current token, without rotating it.** The panel read returns the token the server actually accepts for that account: its own if it has one, and its domain's token if not. It is a read: it does not rotate, does not invalidate the previous one, and does not change the security model.
 
-  El listado de cuentas lleva ahora `credential_source` (`cuenta`,
-  `dominio` o `general`) para que la interfaz no prometa una copia que no
-  va a funcionar, y `own_credential` para decir si ese token es propio o
-  heredado del dominio.
+  The account list now carries `credential_source` (`cuenta`, `dominio` or `general`) so the interface does not promise a copy that will not work, and `own_credential` to state whether that token is the account's own or inherited from the domain.
 
-  Antes, el panel solo decía si una cuenta tenía credencial propia
-  (`has_credential`), lo que era falso para una cuenta que abría su
-  dominio: la cuenta funcionaba y el panel decía que no. Ahora
-  `has_credential` es la respuesta a "hay algún token que abre esta
-  cuenta", y `own_credential` conserva el sentido anterior. Los dos
-  nombres son los de la superficie MCP (`list_accounts`).
+  Previously, the panel only said whether an account had its own credential (`has_credential`), which was false for an account that opened through its domain: the account worked while the panel said it did not. Now `has_credential` answers "is there any token that opens this account", and `own_credential` keeps the previous meaning. Both names are those of the MCP surface (`list_accounts`).
 
-- **El panel se puede ver en claro, en oscuro o como el sistema.** Un
-  selector de tema en la cabecera, con tres opciones, y la elección
-  persiste tras recargar. En «sistema» el panel sigue los cambios de
-  apariencia del dispositivo en vivo, sin recargar.
+- **The panel can be viewed in light, dark, or system mode.** A theme selector in the header offers three options, and the choice persists after reloading. In "system" mode, the panel follows the device's appearance changes live, without reloading.
 
 ### Changed
 
-- **El panel de administración se rediseña.** Solo la interfaz: ni la API,
-  ni el backend, ni las rutas `/mcp/...` cambian.
+- **The administration panel is redesigned.** Only the interface: neither the API, the backend, nor the `/mcp/...` routes change.
 
-  - **Modo oscuro** por defecto, con acento azul y buen contraste.
-  - **Acordeón por dominio**: solo el principal viene abierto, y el que se
-    abre es el que la API marca como principal, no uno fijado en el
-    frontend. La cabecera lleva el nombre, el número de cuentas y la
-    etiqueta "Principal" / "Secundario".
-  - **Acciones reorganizadas**: las del día a día a la vista; las que
-    rompen algo (renovar la clave, desactivar, eliminar) en un menú "⋯"
-    con separador, aviso de que no se pueden deshacer y estilo de peligro.
-  - **Confirmaciones propias** en vez de `confirm()`: título por acción,
-    Escape cancela y el clic fuera cancela. Al cerrarse, el foco vuelve al
-    control que lo abrió.
-  - **Textos claros** y una explicación en cada acción (`title` y
-    `aria-label`).
-  - **Título y favicon** propios: "VYR Mail Hub · Panel".
-  - **Responsive**: comprobado a 390px, sin desbordamiento horizontal.
+  - **Dark mode** by default, with a blue accent and good contrast.
+  - **Accordion per domain**: only the primary one opens by default, and the one that opens is the one the API marks as primary, not one pinned in the frontend. The header shows the name, the number of accounts, and the label "Primary" / "Secondary".
+  - **Reorganized actions**: day-to-day actions are visible; actions that break something (renewing the password, deactivating, deleting) go in a "⋯" menu with a separator, a warning that they cannot be undone, and danger styling.
+  - **Custom confirmations** instead of `confirm()`: a title per action, Escape cancels, and clicking outside cancels. When closed, focus returns to the control that opened it.
+  - **Clear texts** and an explanation for each action (`title` and `aria-label`).
+  - **Custom title and favicon**: "VYR Mail Hub · Panel".
+  - **Responsive**: tested at 390px, with no horizontal overflow.
 
-  Y con el patrón de accesibilidad que pidió la revisión del CTO:
+  And with the accessibility pattern requested by the CTO's review:
 
-  - El disparador del acordeón (`summary`) solo lleva texto. Los botones y
-    el menú están en su propia fila, fuera: dentro serían controles
-    anidados en el disparador.
-  - Esa fila está fuera del `details`, así que se ve con el dominio
-    cerrado. Meterla dentro la escondía, y entonces no se podía añadir
-    una cuenta a un dominio que estuviera cerrado.
-  - El menú "⋯" es un patrón de *menu button* del WAI-ARIA: `aria-haspopup="menu"`,
-    `role="menu"` y `role="menuitem"`, navegación con flechas, Inicio y Fin,
-    y Escape que cierra y devuelve el foco al disparador.
-  - Las entradas del menú llevan `tabindex="-1"`: quedan fuera del orden
-    secuencial de Tab, como manda el patrón. El Tab y el Mayús+Tab
-    abandonan el menú, lo cierran y llevan el foco al control siguiente o
-    anterior de la página. Sin eso, el destino dependía de cómo
-    recalculara el navegador el foco al ocultarse la lista.
-  - El cálculo de ese destino incluye los `summary`, que son controles
-    nativos del acordeón y reciben el foco con el Tab: si no, al salir de
-    un menú se saltaba la cabecera del dominio siguiente. Y si no hay
-    ningún control en esa dirección, el foco vuelve al disparador, en
-    vez de quedarse en la entrada del menú que se acaba de ocultar.
-  - `aria-expanded` se restablece al elegir una opción, no solo al cerrar
-    con Escape.
-  - Los listeners de `document` son uno solo para todos los menús, en vez
-    de uno por menú: si no, se acumulaban con cada repintado.
-  - La lista de cuentas no depende de `:has()`: si el navegador no lo
-    entiende, se muestra siempre. Es preferible mostrar cuentas de más a
-    no mostrar ninguna. El estado del acordeón va además en el atributo
-    `data-abierto` del bloque.
+  - The accordion trigger (`summary`) contains only text. The buttons and the menu sit in their own row, outside it: inside, they would be nested controls within the trigger.
+  - That row is outside the `details`, so it is visible with the domain closed. Putting it inside hid it, and then it was not possible to add an account to a closed domain.
+  - The "⋯" menu is a WAI-ARIA *menu button* pattern: `aria-haspopup="menu"`, `role="menu"` and `role="menuitem"`, arrow-key navigation, Home and End, and Escape that closes the menu and returns focus to the trigger.
+  - The menu items carry `tabindex="-1"`: they are removed from the sequential Tab order, as the pattern requires. Tab and Shift+Tab leave the menu, close it, and move focus to the next or previous control on the page. Without that, the destination depended on how the browser recalculated focus when the list was hidden.
+  - The calculation of that destination includes the `summary`, which are native accordion controls and receive focus via Tab: otherwise, leaving a menu skipped the next domain's header. And if there is no control in that direction, focus returns to the trigger, instead of staying on the menu item that was just hidden.
+  - `aria-expanded` resets when an option is chosen, not only when closed with Escape.
+  - The `document` listeners are a single set for all menus, instead of one per menu: otherwise they accumulated with each repaint.
+  - The account list does not depend on `:has()`: if the browser does not support it, the list is always shown. Showing extra accounts is preferable to showing none. The accordion state is also stored in the `data-abierto` attribute of the block.
 
-- **La revisión tiene presupuesto: diez minutos.** Las primeras
-  revisiones tardaron entre 5 y 66 minutos, y el tiempo no se iba en
-  revisar: se iba en **verificar de más** (clonar, instalar un entorno de
-  cero, construir arneses de pruebas de mutación e investigar la
-  plataforma). Ahora:
+- **The review has a budget: ten minutes.** The first reviews took between 5 and 66 minutes, and the time was not spent reviewing: it went to **over-verifying** (cloning, installing a fresh environment, building mutation-testing harnesses, and investigating the platform). Now:
 
-  - el revisor **no ejecuta nada**: el agente principal le pasa la salida
-    de las pruebas y el lint, y él lee, razona y reporta. No tiene shell,
-    la edición y el lanzamiento de subagentes están denegados, y Code
-    Mode también. Una allowlist de comandos **no es defendible**: cualquier
-    subcomando con un argumento de escritura la cuela (`ruff check
+  - the reviewer **does not run anything**: the main agent passes it the output of the tests and the linter, and it reads, reasons, and reports. It has no shell, editing and subagent launching are denied, and Code Mode too. A command allowlist **is not defensible**: any subcommand with a write argument slips through (`ruff check
     --fix`, `git diff --output=`, `pytest --junit-xml=`);
-  - el **clon limpio** y la comprobación de que **el test nuevo falla sin
-    el arreglo** los hace el agente principal, que los tiene en segundos;
-  - la **repetición** es a criterio del agente principal: una revisión, no
-    un ciclo.
+  - the **clean clone** and the check that **the new test fails without the fix** are done by the main agent, which has them in seconds;
+  - the **repetition** is at the main agent's discretion: one review, not a cycle.
 
-  Y el prompt del revisor se ha recortado: se busca lo grave, no se hace
-  una auditoría exhaustiva.
+And the reviewer's prompt has been trimmed: it looks for serious problems, not an exhaustive audit.
 
 ## [2.1.0] — 2026-10-29
 
-El **envío directo** para las rutinas automáticas, y la herramienta que
-impide dar por buena una implementación sin mirarla.
+The **direct send** for automated routines, and the tool that prevents accepting an implementation without reviewing it.
 
 ### Added
 
-- **Envío directo opt-in para rutinas automáticas.** La tool
-  `send_message_direct` envía el mensaje en **una sola llamada**, sin
-  `confirmation_id` y sin confirmación humana por mensaje. Existe para los
-  agentes que trabajan en segundo plano: en Paperclip, un agente que
-  extrae pendientes de Trello y manda el correo llama una vez, y la
-  plataforma no le deja hacer la segunda llamada del flujo de dos pasos.
+- **Opt-in direct send for automated routines.** The tool `send_message_direct` sends the message in **a single call**, without `confirmation_id` and without human confirmation per message. It exists for agents that work in the background: in Paperclip, an agent that extracts pending items from Trello and sends the email calls it once, and the platform doesn't let it make the second call of the two-step flow.
 
-  El modo está apagado por defecto y es independiente del envío normal:
+  The mode is off by default and independent of the normal send:
 
-  | | Interruptor global | Permiso de dominio/cuenta |
+  | | Global switch | Domain/account permission |
   | --- | --- | --- |
-  | Envío con confirmación | `MCP_ENABLE_SEND` | `allow_send` |
-  | Envío directo | `MCP_ENABLE_DIRECT_SEND` | `allow_direct_send` |
+  | Send with confirmation | `MCP_ENABLE_SEND` | `allow_send` |
+  | Direct send | `MCP_ENABLE_DIRECT_SEND` | `allow_direct_send` |
 
-  La tool exige `idempotency_key`: una clave estable por envío. La misma
-  clave con el mismo contenido **no vuelve a enviar**, devuelve el
-  resultado anterior con `duplicate: true`; la misma clave con otro
-  contenido se rechaza. Las claves viven en la base de datos, así que
-  sobreviven a un reinicio y un reintento no duplica el correo.
+  The tool requires `idempotency_key`: a stable key per send. The same key with the same content **does not send again**; it returns the previous result with `duplicate: true`. The same key with different content is rejected. The keys live in the database, so they survive a restart and a retry does not duplicate the email.
 
-  El esquema de la base pasa a la versión 2, con la tabla `direct_sends`.
-  La migración se aplica al arrancar.
+  The database schema moves to version 2, with the table `direct_sends`. The migration is applied at startup.
 
-  Los fallos del SMTP se distinguen: un **rechazo** libera la clave y
-  permite reintentar; una **falta de respuesta** deja la clave en estado
-  incierto, porque el correo pudo salir, y el servidor se niega a
-  reenviarlo con esa clave.
+  SMTP failures are distinguished: a **rejection** releases the key and allows a retry; a **lack of response** leaves the key in an uncertain state, because the email may have gone out, and the server refuses to resend it with that key.
 
-  Esto cambia el modelo de seguridad a propósito: en una cuenta con envío
-  directo, el servidor **no** exige confirmación por mensaje. La
-  autorización es la que se dio de antemano, y conviene limitarla a la
-  cuenta que usa la rutina.
+  This deliberately changes the security model: on an account with direct send, the server does **not** require confirmation per message. The authorization is the one given in advance, and it is advisable to limit it to the account the routine uses.
 
 ### Fixed
 
-- **La migración añade la columna que falta.** La v2 añadió el permiso
-  `allow_direct_send` a `domains` y `accounts`, pero la migración solo
-  creaba la tabla `direct_sends`: la columna se había añadido al
-  `CREATE TABLE` de la v1, y eso solo afecta a las bases **nuevas**. Una
-  base v1 en marcha migraba sin la columna y el servidor se caía al
-  arrancar con `IndexError: No item with that key` al leer las cuentas.
+- **The migration adds the missing column.** v2 added the permission `allow_direct_send` to `domains` and `accounts`, but the migration only created the table `direct_sends`: the column had been added to the `CREATE TABLE` of v1, and that only affects **new** databases. A running v1 database migrated without the column, and the server crashed at startup with `IndexError: No item with that key` when reading the accounts.
 
-  Ahora la migración hace el `ALTER TABLE` que faltaba, y la comprobación
-  es **idempotente y no depende del número de versión**: se mira la tabla
-  real. Eso repara también las bases que quedaron a medias (marcadas como
-  la versión nueva pero sin la columna), que es lo que pasó en el
-  despliegue que falló.
+  Now the migration performs the `ALTER TABLE` that was missing, and the check is **idempotent and does not depend on the version number**: it inspects the actual table. This also repairs databases that were left half-done (marked as the new version but without the column), which is what happened in the deployment that failed.
 
-- **La versión del esquema se escribe al migrar.** La migración escribía
-  `schema_version` solo si la fila no existía. Una base que migraba
-  aplicaba los cambios pero seguía marcando la versión anterior, así que
-  la migración se volvía a aplicar en cada arranque. Ahora se escribe
-  siempre.
+- **The schema version is written when migrating.** The migration wrote `schema_version` only if the row did not exist. A database that migrated applied the changes but kept marking the previous version, so the migration was reapplied on every startup. Now it is always written.
 
-- **«Cancelar» ya cierra el diálogo de una cuenta.** El formulario del
-  diálogo («Añadir cuenta» y «Editar cuenta») tiene el correo y la
-  contraseña obligatorios. Con el formulario vacío, la validación de los
-  campos bloqueaba el envío del formulario, así que el evento `submit` no
-  llegaba a dispararse y el `method="dialog"` no cerraba nada: el
-  diálogo se quedaba abierto, con los campos marcados en rojo, sin poder
-  salir. Pulsar «Cancelar» no cerraba el modal.
+- **"Cancel" now closes the account dialog.** The form in the dialog ("Add account" and "Edit account") has required email and password fields. With the form empty, field validation blocked form submission, so the `submit` event never fired and the `method="dialog"` did not close anything: the dialog stayed open, with the fields marked in red, with no way out. Clicking "Cancel" did not close the modal.
 
-  Ahora el botón lleva `formnovalidate`, y el cierre se hace en el
-  manejador del `submit` en vez de fiarse del envío nativo. «Cancelar»
-  cierra el diálogo sin guardar nada, sin errores de validación y sin
-  enviar nada al servidor. «Guardar cambios» sigue validando: un correo
-  o una contraseña que no valen son un error, y no se guarda.
+  Now the button carries `formnovalidate`, and closing is handled in the `submit` handler instead of relying on native submission. "Cancel" closes the dialog without saving anything, without validation errors, and without sending anything to the server. "Save changes" still validates: an invalid email or password is an error, and nothing is saved.
 
-- **El menú de tres puntos ya no se recorta.** El bloque de cada dominio
-  recorta su contenido con `overflow: hidden`, para que el acordeón no
-  se salga de sus bordes. El menú de más opciones cuelga de una cuenta, que
-  está dentro de ese bloque, así que también se recortaba: cuando la
-  cuenta estaba cerca del borde de abajo, la última entrada —«Eliminar
-  cuenta»— desaparecía y no se podía pulsar.
+- **The three-dot menu is no longer clipped.** The block for each domain clips its content with `overflow: hidden`, so that the accordion doesn't overflow its edges. The more-options menu hangs from an account, which is inside that block, so it was also being clipped: when the account was near the bottom edge, the last entry—"Delete account"—disappeared and could not be clicked.
 
-  El menú pasa a `position: fixed`, que ningún ancestro recorta, y su
-  posición la calcula el script al abrirlo: bajo el botón y pegado a su
-  derecha, y hacia arriba si no cabe debajo. Al desplazar o redimensionar
-  la ventana se vuelve a colocar, para que no se quede desalineado.
+The menu moves to `position: fixed`, which no ancestor clips, and its
+  position is calculated by the script when it opens: below the button and flush against its
+  right edge, and upward if it doesn't fit below. When scrolling or resizing
+  the window, it is repositioned so that it does not end up misaligned.
 
-- **Las comprobaciones en navegador real, instalables.** Las herramientas
-  de `herramientas/` que abren Chromium (la del tema y la del modal de
-  cuenta) necesitan Playwright, que no estaba declarado en ninguna parte:
-  quien siguiera el flujo de `AGENTS.md` se encontraba con un
-  `ModuleNotFoundError` sin saber por qué.
+- **Browser checks that are installable.** The tools
+  in `herramientas/` that open Chromium (the theme one and the account modal one)
+  need Playwright, which was not declared anywhere:
+  anyone following the `AGENTS.md` flow ran into a
+  `ModuleNotFoundError` without knowing why.
 
-  Ahora las dependencias de esas herramientas van aparte, en
-  `requirements-browser.txt`. **No** se han metido en
-  `requirements-dev.txt` a propósito: la suite de tests no las usa, y
-  harían más lenta cada instalación, la de CI incluida. El instalador
-  queda en dos líneas, en la cabecera de cada herramienta y en
+  Now the dependencies of those tools are kept separate, in
+  `requirements-browser.txt`. **They were not** added to
+  `requirements-dev.txt` on purpose: the test suite does not use them, and
+  they would slow down every install, CI included. The installer
+  is down to two lines, in the header of each tool and in
   `docs/dashboard.md`.
 
-### Documentación
+### Documentation
 
-- **La revisión automática antes de dar algo por bueno.** La skill
-  `revision` (`.opencode/skills/revision/`) lanza un subagente revisor
-  con contexto limpio al terminar una implementación, antes del commit y
-  del push. El revisor es el agente `reviewer`
-  (`.opencode/agents/reviewer.md`), que **no puede usar las tools de
-  edición**: la garantía no depende de que el prompt se lo pida. (Puede
-  usar el shell, que necesita para clonar y correr tests, pero trabaja
-  siempre en un clon desechable.)
+- **Automatic review before accepting anything as good.** The skill
+  `revision` (`.opencode/skills/revision/`) launches a reviewer subagent
+  with clean context when an implementation is finished, before the commit and
+  the push. The reviewer is the `reviewer` agent
+  (`.opencode/agents/reviewer.md`), which **cannot use the edit tools**: the guarantee does not depend on the prompt asking for it. (It can
+  use the shell, which it needs to clone and run tests, but it always works
+  in a disposable clone.)
 
-  El revisor trabaja en un clon aparte, comprueba el cambio
-  **ejecutando** (tests, clon limpio con dependencias de verdad, y que el
-  test nuevo falla sin el arreglo) y contrasta el cambio con la lista de
-  trampas del `AGENTS.md`. El agente principal verifica sus hallazgos
-  antes de arreglarlos, y repite la revisión si el arreglo cambió el
-  código.
+  The reviewer works in a separate clone, checks the change
+  **by running it** (tests, a clean clone with real dependencies, and that the
+  new test fails without the fix) and checks the change against the list of
+  pitfalls in `AGENTS.md`. The main agent verifies its findings
+  before fixing them, and repeats the review if the fix changed the
+  code.
 
-  La regla que la hace obligatoria está en el `AGENTS.md`, que se inyecta
-  en cada sesión: no depende de que el modelo "se acuerde".
+  The rule that makes it mandatory is in `AGENTS.md`, which is injected
+  into every session: it does not depend on the model "remembering."
 
-  Existe porque las dos últimas implementaciones se dieron por buenas sin
-  ejecutar validaciones que el propio `AGENTS.md` ya pedía: una migración
-  sin `ALTER TABLE` y un clon limpio sin hacer. La skill se corrigió
-  varias veces con la ayuda del revisor antes de estar lista: encontró,
-  entre otros, que el detector de datos ficticios pasaba en falso sobre
-  los ficheros nuevos sin versionar.
+  It exists because the last two implementations were accepted as good without
+  running validations that `AGENTS.md` itself already required: a migration
+  without `ALTER TABLE` and a clean clone not done. The skill was corrected
+  several times with the reviewer's help before it was ready: it found,
+  among other things, that the fake-data detector gave false positives on
+  the new untracked files.
 
-- **`tests/test_revision.py`.** La skill se vigila a sí misma: que el
-  frontmatter sea YAML válido, que los marcadores del prompt coincidan con
-  los de la skill, que el fichero de referencia exista en la ruta que dice,
-  que el agente no pueda editar, que la skill y el `AGENTS.md` no se
-  contradigan y que no se cuelen palabras en otro idioma.
+- **`tests/test_revision.py`.** The skill monitors itself: that the
+  frontmatter is valid YAML, that the prompt's markers match
+  those of the skill, that the reference file exists at the path it states,
+  that the agent cannot edit, that the skill and `AGENTS.md` do not
+  contradict each other, and that no words in another language slip in.
 
-- **Las lecciones de esta versión quedan en el `AGENTS.md`.** Catorce
-  trampas nuevas, cada una con su historia. Seis son del terreno del
-  contrato con el cliente: el nombre de un campo puede hacer que el
-  agente nunca reciba el valor; la respuesta de una tool es texto con
-  JSON dentro y también se redacta; el cliente cachea el catálogo de las
-  tools; una respuesta sin identificadores no se puede comprobar; un
-  test que recorre una lista vacía pasa siempre; y el doble de IMAP tiene
-  que saber lo que el código usa, o el test pasa por el motivo equivocado.
+- **The lessons from this version are recorded in `AGENTS.md`.** Fourteen
+  new pitfalls, each with its story. Six concern the client contract:
+  the name of a field can keep the agent from ever receiving the value;
+  a tool's response is text with JSON inside and is also redacted; the
+  client caches the catalog of tools; a response without identifiers cannot be
+  verified; a test that iterates over an empty list always passes; and the
+  IMAP double has to know what the code uses, or the test passes for the wrong reason.
 
-  Las otras ocho son de este trabajo: una tool que se llama una vez no
-  puede depender de la segunda; un nombre de argumento con `key` puede
-  acabar tapado; un rechazo y una falta de respuesta no son lo mismo; una
-  clave de idempotencia necesita una huella, no solo una clave; una base
-  de datos de pruebas se queda en el disco; la versión del esquema se
-  escribe siempre, no solo cuando falta; **añadir una columna no es
-  cambiar el `CREATE TABLE`**; y el número de versión puede mentir.
+  The other eight come from this work: a tool that is called once must not
+  depend on the second one; an argument name with `key` can end up
+  shadowed; a rejection and a lack of response are not the same; an
+  idempotency key needs a fingerprint, not just a key; a test database
+  stays on disk; the schema version is always written, not only when it is missing;
+  **adding a column is not
+  changing `CREATE TABLE`**; and the version number can lie.
 
-### Despliegue
+### Deployment
 
-- **La base de datos migra sola al arrancar.** El esquema pasa a la
-  versión 2. No hay que tocar la base a mano y **las cuentas no se
-  pierden**: la migración añade la columna que faltaba y comprueba las
-  columnas contra la tabla real, así que también repara las bases que
-  quedaron a medias con una versión nueva escrita y los cambios sin
-  aplicar. El log dice qué columnas se han añadido; si el arranque falla,
-  el error dice si la base está en solo lectura o bloqueada.
-- Hay que **refrescar el catálogo de las tools** en el cliente MCP: se
-  añade `send_message_direct` y aparece un permiso nuevo en el panel. Un
-  cliente con el catálogo viejo sigue funcionando con las tools de antes.
-- Para usar el envío directo: `MCP_ENABLE_DIRECT_SEND=true` en el entorno
-  (y en el compose), y `allow_direct_send` en el panel, en el dominio o en
-  la cuenta concreta.
-- En Paperclip, la política del agente tiene que permitir `send_message_direct`
-  sin aprobación interactiva: el servidor ya no pide confirmación, pero el
-  cliente puede tenerla configurada por su cuenta.
-- **La imagen se ha publicado sin construir ni probar en local**: la
-  máquina de publicación no tiene Docker. `tests/test_docker.py` comprueba
-  que los módulos que tienen que entrar en la imagen estén, pero no que
-  la imagen construya, ni que los permisos del contenedor sean los
-  correctos, ni que el volumen de datos funcione.
-- **La imagen sale solo para `linux/amd64`**: el workflow no lleva
-  `setup-qemu` ni `platforms`. En un host arm64 hay que construirla en
-  local.
+- **The database migrates itself on startup.** The schema moves to
+  version 2. There is no need to touch the database by hand and **accounts are not
+  lost**: the migration adds the missing column and checks the columns against the actual table,
+  so it also repairs databases that were left half-finished with a new version recorded and changes not applied.
+  The log states which columns were added; if startup fails,
+  the error says whether the database is read-only or locked.
+- You need to **refresh the tool catalog** in the MCP client: `send_message_direct` is added and a new permission appears in the panel. A client with the old catalog keeps working with the previous tools.
+- To use direct sending: `MCP_ENABLE_DIRECT_SEND=true` in the environment
+  (and in the compose file), and `allow_direct_send` in the panel, on the domain or on
+  the specific account.
+- In Paperclip, the agent policy must allow `send_message_direct`
+  without interactive approval: the server no longer asks for confirmation, but the
+  client may have it configured on its own.
+- **The image was published without being built or tested locally**: the
+  publishing machine does not have Docker. `tests/test_docker.py` checks
+  that the modules that must go into the image are present, but not that
+  the image builds, nor that the container permissions are
+  correct, nor that the data volume works.
+- **The image is only published for `linux/amd64`**: the workflow does not include
+  `setup-qemu` or `platforms`. On an arm64 host it must be built
+  locally.
 
 ## [2.0.1] — 2026-10-27
 
-Corrección del contrato de las tools de escritura y del flujo de confirmación,
-con dos incidentes reales de por medio.
+Fix of the write tools' contract and the confirmation flow,
+with two real incidents along the way.
 
 ### Fixed
 
-- **`confirm_token` se renombra a `confirmation_id`.** El agente no conseguía
-  leer el valor de la preparación y no podía completar el envío. La causa
-  estaba en Paperclip: tapa por **nombre** los campos de una respuesta de tool
-  que "parecen credenciales" (`token`, `secret`, `password`, `api_key`,
-  `bearer`...), y **el valor tapado es el que recibe el agente**, no el
-  original. `confirm_token` caía en ese patrón, así que el agente recibía
-  `***REDACTED***` en lugar del identificador. `confirmation_id` no cae, y el
-  valor llega intacto.
+- **`confirm_token` is renamed to `confirmation_id`.** The agent could not read the value from the preparation and could not complete the send. The cause
+  was in Paperclip: it masks by **name** the fields of a tool response that "look like credentials" (`token`, `secret`, `password`, `api_key`,
+  `bearer`...), and **the masked value is the one the agent receives**, not the original. `confirm_token` fell into that pattern, so the agent received
+  `***REDACTED***` instead of the identifier. `confirmation_id` does not match, and the
+  value arrives intact.
 
-  El `confirmation_id` no es una credencial: sin el bearer de la cuenta no
-  sirve de nada, solo vale para una operación, en una cuenta, y durante diez
-  minutos. Su valor lleva ahora un prefijo `cfm_` para que tampoco tenga la
-  forma de una clave de ningún proveedor.
+  `confirmation_id` is not a credential: without the account's bearer it is useless, it is only valid for one operation, in one account, and for ten
+  minutes. Its value now carries a `cfm_` prefix so that it also does not have the form of any provider's key.
 
-  Es un cambio de contrato: el argumento de `send_message` y `delete_message`
-  se llama ahora `confirmation_id`, y la respuesta de `prepare_send` y
-  `prepare_delete` devuelve ese campo. Los clientes que leían el esquema
-  dinámicamente no se enteran; los que lo tenían escrito, sí.
+  This is a contract change: the argument of `send_message` and `delete_message`
+  is now called `confirmation_id`, and the response of `prepare_send` and
+  `prepare_delete` returns that field. Clients that read the schema dynamically will not notice; those that had it hard-coded will.
 
-- **Un `confirmation_id` que llega tapado dice que llegó tapado.** Antes el
-  error era «desconocido o ya usado», que no distinguía un identificador
-  malo de uno que nunca llegó. Ahora el mensaje dice que la plataforma lo
-  redactó y que hay que volver a preparar.
+- **A `confirmation_id` that arrives masked says that it arrived masked.** Before, the error was "unknown or already used," which did not distinguish a bad identifier from one that never arrived. Now the message says that the platform redacted it and that the preparation must be repeated.
 
 ### Added
 
-- **El envío dice cómo localizar el mensaje.** `send_message` devuelve
-  `message_id` y `sent_uid`, además de `sent_folder`. `create_draft` devuelve
-  `message_id` y `draft_uid`. Con un diagnóstico real en la mano: el envío
-  devolvió `copy_in_sent: true` y `sent: true`, pero las búsquedas
-  posteriores en la carpeta de Enviados devolvieron cero mensajes y el
-  informe no tenía forma de comprobar la copia, porque la respuesta no
-  traía ningún identificador. Con `message_id` y `sent_uid`, el mensaje se
-  localiza sin adivinar carpeta ni criterio.
-- **`search_messages` acepta `message_id`.** Es la forma determinista de
-  encontrar un mensaje concreto del que se conoce el identificador, y la
-  que se usa para localizar la copia de un envío. Acepta el Message-ID con o
-  sin ángulos.
-- **`list_accounts` dice `sent_folder` y `drafts_folder`** de cada cuenta. La
-  guía decía dónde está cada buzón, pero no en qué carpeta se guarda la
-  copia de Enviados: el agente tenía que adivinar el nombre y acababa
-  buscando en una carpeta que no era.
-- **`tests/test_nombres_de_campos.py`.** Ningún nombre de campo de la
-  superficie MCP puede caer en un patrón de secreto, y el valor del
-  `confirmation_id` no puede tener la forma de una credencial conocida. El
-  test se comprobó revirtiendo el nombre: falla, que es lo que tiene que
-  hacer.
+- **The send says how to locate the message.** `send_message` returns
+  `message_id` and `sent_uid`, in addition to `sent_folder`. `create_draft` returns
+  `message_id` and `draft_uid`. Based on a real diagnosis: the send
+  returned `copy_in_sent: true` and `sent: true`, but the
+  subsequent searches in the Sent folder returned zero messages and the report had no way to verify the copy, because the response carried no identifier. With `message_id` and `sent_uid`, the message is located without guessing the folder or the criterion.
+- **`search_messages` accepts `message_id`.** It is the deterministic way to
+  find a specific message whose identifier is known, and the one used to locate the copy of a send. It accepts the Message-ID with or
+  without angle brackets.
+- **`list_accounts` states `sent_folder` and `drafts_folder`** for each account. The
+  guide said where each mailbox is, but not in which folder the copy of Sent items is stored: the agent had to guess the name and ended up searching in a folder that was not the right one.
+- **`tests/test_nombres_de_campos.py`.** No field name on the MCP surface may match a secret pattern, and the value of the
+  `confirmation_id` may not have the form of a known credential. The test was verified by reverting the name: it fails, which is what it should do.
 
-  Cubre las tres cosas que pasaron en producción: que el `confirmation_id`
-  sobrevive a la redacción de la plataforma (se aplica su regex a la
-  respuesta real), que un cliente con el catálogo viejo recibe un error
-  accionable y no el del valor tapado, y que las respuestas de envío y
-  borrador tampoco tienen claves que se tapen.
+  It covers the three things that happened in production: that the `confirmation_id`
+  survives the platform's redaction (its regex is applied to the actual response), that a client with the old catalog receives an actionable error and not the one for the masked value, and that the send and draft responses also have no keys that get masked.
 
 ### Changed
 
-- **El flujo de envío y de borrado se explica en tres capas.** El agente
-  llamaba a `prepare_send`, creía que el correo salía y no sabía que tenía
-  que llamar después a `send_message`. Ahora el contrato se dice en las
-  instrucciones del servidor (paso a paso), en la descripción de cada tool
-  (`prepare_send` dice que no envía y cuál es la siguiente llamada;
-  `send_message` dice de dónde sale el `confirmation_id`) y en la respuesta de
-  la preparación. No se puede depender de que el cliente trasmita las
-  instrucciones generales del servidor.
-- **La respuesta de la preparación lleva el estado explícito.** `prepare_send`
-  y `prepare_delete` devuelven `status: "prepared"`, `sent: false` o
-  `deleted: false`, y `next_tool` con la tool que sigue. La segunda llamada
-  devuelve `status: "sent"` o `status: "deleted"`. El estado ya no depende de
-  que el modelo deduzca la secuencia de un texto.
-- **Los avisos dicen qué hacer a continuación.** El aviso de la preparación ya
-  no solo prohíbe llamar a `send_message` o `delete_message` antes de tiempo:
-  indica que la operación no se ha ejecutado, que hay que mostrar la vista
-  previa, esperar la orden explícita y luego llamar a la tool siguiente con el
-  `confirmation_id` devuelto. También avisa de que el `confirmation_id` caduca
-  y de que, si falta o no llegó legible, hay que volver a preparar en vez de
-  inventarlo.
+- **The send and delete flow is explained in three layers.** The agent
+  called `prepare_send`, believed the email had been sent, and did not know it had to call `send_message` afterwards. Now the contract is stated in the server instructions (step by step), in the description of each tool
+  (`prepare_send` says that it does not send and which is the next call;
+  `send_message` says where the `confirmation_id` comes from), and in the preparation response. One cannot rely on the client passing along the server's general instructions.
+- **The preparation response carries explicit status.** `prepare_send`
+  and `prepare_delete` return `status: "prepared"`, `sent: false` or
+  `deleted: false`, and `next_tool` with the tool that follows. The second call
+  returns `status: "sent"` or `status: "deleted"`. The status no longer depends on the model inferring the sequence from a text.
+- **The warnings say what to do next.** The preparation warning no longer merely prohibits calling `send_message` or `delete_message` too early:
+  it states that the operation has not been executed, that the preview must be shown, that the explicit order must be awaited, and then the following tool must be called with the returned `confirmation_id`. It also warns that the `confirmation_id` expires,
+  and that, if it is missing or did not arrive legibly, the preparation must be repeated instead of inventing it.
 
-No cambia el modelo de seguridad: sigue haciendo falta la orden explícita de
-quien opera el asistente, y el `confirmation_id` sigue siendo de un solo uso,
-ligado a la cuenta y a la operación.
+The security model does not change: the explicit instruction from whoever operates the assistant is still required, and `confirmation_id` remains single-use, bound to the account and the operation.
 
-### Despliegue
+### Deployment
 
-Al subir esto hay que **refrescar el catálogo de la conexión** en el cliente
-MCP: el nombre del argumento de `send_message` y `delete_message` ha cambiado,
-y un cliente con el catálogo viejo sigue mandando `confirm_token`, que el
-servidor rechaza con un error de validación. Se recupera leyendo el esquema
-de nuevo, pero es mejor no llegar ahí.
+When deploying this, you must **refresh the connection's catalog** in the MCP client: the argument name for `send_message` and `delete_message` has changed, and a client with the old catalog keeps sending `confirm_token`, which the server rejects with a validation error. It can be recovered by reading the schema again, but it is better not to get there.
 
-La imagen se ha publicado **sin construir ni probar en local**: la máquina de
-publicación no tiene Docker. `tests/test_docker.py` comprueba que los módulos
-que tienen que entrar en la imagen estén, pero no que la imagen construya, ni
-los permisos del contenedor, ni que el volumen de datos funcione. La imagen
-sale solo para `linux/amd64`.
+The image was published **without being built or tested locally**: the publishing machine has no Docker. `tests/test_docker.py` checks that the modules that must go into the image are present, but not that the image builds, nor the container's permissions, nor that the data volume works. The image is released only for `linux/amd64`.
 
 ## [1.0.0] — 2026-10-26
 
-Primera versión estable. El objetivo sigue siendo el mismo: que un asistente
-de IA pueda trabajar con buzones IMAP/SMTP de terceros sin que el agente
-necesite salida a IMAP ni SMTP, y sin que pueda escribir sin una orden
-explícita de quien lo opera.
+First stable release. The goal remains the same: for an AI assistant to be able to work with third-party IMAP/SMTP mailboxes without the agent needing outbound access to IMAP or SMTP, and without being able to write without an explicit instruction from whoever operates it.
 
-### Añadido
+### Added
 
-- **Configuración solo por variables de entorno.** Cada ajuste del servidor
-  tiene su variable `MCP_*`. Las cuentas se declaran numeradas:
-  `MCP_ACCOUNT_<CAMPO>_<N>`. Precedencia: entorno > `accounts.toml` > defaults.
-- **Rutas por cuenta.** `/mcp` expone todos los buzones con el bearer global.
-  `/mcp/<cuenta>` expone uno solo, identificado por su correo, su `NAME` o su
-  número, y se puede autenticar con una credencial propia
-  (`MCP_ACCOUNT_BEARER_<N>`) que no vale en ninguna otra ruta.
-- **Aislamiento en un único punto.** `MailService._account` es el único sitio
-  donde se comprueba el ámbito de la petición, de modo que ninguna tool puede
-  tocar una cuenta fuera de su ruta.
-- **Despliegue con Portainer.** `docker-compose.yml` no monta ningún
-  fichero de configuración: todo llega por variables. Overlays para
-  Cloudflare Tunnel (`docker-compose.tunnel.yml`), para Caddy con TLS propio
-  (`docker-compose.proxy.yml`) y para desarrollo local
-  (`docker-compose.local.yml`).
-- **Cloudflare Tunnel.** `cloudflared` alcanza el contenedor por la red de
-  Compose; no hace falta abrir ningún puerto en el host ni añadir Caddy.
-- **Versionado.** `version.py` es la fuente de verdad, un test la sincroniza
-  con `pyproject.toml` y con la etiqueta de la imagen, y la versión aparece en
-  el handshake MCP. Las etiquetas `vX.Y.Z` publican la imagen en GHCR y crean
-  el Release.
+- **Configuration via environment variables only.** Each server setting has its own variable `MCP_*`. Accounts are declared numbered: `MCP_ACCOUNT_<CAMPO>_<N>`. Precedence: environment > `accounts.toml` > defaults.
+- **Per-account routes.** `/mcp` exposes all mailboxes with the global bearer. `/mcp/<cuenta>` exposes just one, identified by its email address, its `NAME`, or its number, and can be authenticated with its own credential (`MCP_ACCOUNT_BEARER_<N>`) that is not valid on any other route.
+- **Isolation at a single point.** `MailService._account` is the only place where the scope of the request is checked, so no tool can touch an account outside its route.
+- **Deployment with Portainer.** `docker-compose.yml` mounts no configuration file: everything comes through variables. Overlays for Cloudflare Tunnel (`docker-compose.tunnel.yml`), for Caddy with its own TLS (`docker-compose.proxy.yml`), and for local development (`docker-compose.local.yml`).
+- **Cloudflare Tunnel.** `cloudflared` reaches the container through the Compose network; there is no need to open any port on the host or add Caddy.
+- **Versioning.** `version.py` is the source of truth; a test keeps it in sync with `pyproject.toml` and with the image tag, and the version appears in the MCP handshake. The `vX.Y.Z` tags publish the image to GHCR and create the Release.
 
-### Seguridad
+### Security
 
-- Bearer obligatorio comparado con `hmac.compare_digest`; sin él, el proceso
-  no arranca.
-- Los interruptores de escritura solo admiten `true`, `false`, `1` y `0`: un
-  valor mal escrito aborta el arranque en vez de quedarse apagado en
-  silencio.
-- Las credenciales por cuenta no pueden repetirse ni coincidir con la global.
-- Auditoría JSONL por llamada, sin cuerpos ni credenciales. Si no se puede
-  escribir, la tool no muta el buzón ni emite un token.
+- Mandatory bearer compared against `hmac.compare_digest`; without it, the process does not start.
+- The write switches only accept `true`, `false`, `1` and `0`: a misspelled value aborts startup instead of silently staying off.
+- Per-account credentials cannot be repeated or match the global one.
+- JSONL audit per call, without bodies or credentials. If it cannot be written, the tool does not mutate the mailbox nor issue a token.
 
 ## [1.0.1] — 2026-10-26
 
-Correcciones de una auditoría completa del proyecto.
+Fixes from a full audit of the project.
 
-### Corregido
+### Fixed
 
-- **El logging no lo configuraba el proyecto.** Los mensajes salían porque el
-  SDK configura el logger raíz de rebote al construir el servidor MCP, con su
-  formato. Si el SDK cambiaba, el banner de arranque se iba con él. Ahora se
-  configura antes de nada, con el mismo formato que uvicorn.
-- **`MCP_SMTP_SECURITY` no hacía nada** en las cuentas por entorno: la cuenta
-  fijaba siempre el modo, así que el global era código muerto. Ahora la cuenta
-  solo lo fija si dice `SMTP_USE_SSL`, y el puerto por defecto acompaña al modo
-  (465 para `ssl`, 587 para `starttls`).
-- **Los destinatarios ocultos se quedaban en la copia de Enviados.** El mismo
-  mensaje llevaba `Bcc` por SMTP y sin `Bcc` al guardarlo.
-- **`MCP_CONFIG` a un fichero inexistente impedía arrancar**, aunque las
-  cuentas estuvieran definidas por entorno. Pasaba en el despliegue con systemd.
-- **`/mcp/0` resolvía a una cuenta arbitraria** del `accounts.toml`.
-- **`find_unanswered` afirmaba un criterio que no había comprobado** cuando no
-  podía abrir la carpeta de enviados. Ahora lo dice.
-- **El rotador de auditoría moría con una traza** en bucle de reinicios si un
-  tamaño no era un número. Y una clave `"password"` entrecomillada se colaba en
-  el TOML generado.
+- **The project did not configure logging.** Messages came out because the SDK configures the root logger as a side effect when building the MCP server, using its own format. If the SDK changed, the startup banner went with it. It is now configured before anything else, with the same format as uvicorn.
+- **`MCP_SMTP_SECURITY` did nothing** for environment-defined accounts: the account always set the mode, so the global one was dead code. Now the account only sets it if it specifies `SMTP_USE_SSL`, and the default port follows the mode (465 for `ssl`, 587 for `starttls`).
+- **Blind recipients were left in the Sent copy.** The same message carried `Bcc` over SMTP and had no `Bcc` when saved.
+- **`MCP_CONFIG` pointing to a nonexistent file prevented startup**, even when accounts were defined via environment. It happened in the systemd deployment.
+- **`/mcp/0` resolved to an arbitrary account** of the `accounts.toml`.
+- **`find_unanswered` asserted a criterion it had not verified** when it could not open the Sent folder. It now says so.
+- **The audit rotator died with a traceback** in a restart loop if a size was not a number. And a quoted `"password"` key slipped into the generated TOML.
 
-### Consistencia
+### Consistency
 
-- El entrypoint ya no decide si hay cuentas: solo prepara el fichero. Era el
-  sitio donde aparecían las discrepancias de esquema.
-- El mapa de capacidades, el límite de carpeta y la lista de cabeceras viven
-  ahora en un solo sitio.
-- `tests/test_ficticio.py` impide que un dominio, un correo o un rastro personal
-  se cuelen en el repositorio.
+- The entrypoint no longer decides whether there are accounts: it only prepares the file. It used to be where the schema discrepancies appeared.
+- The capability map, the folder limit, and the list of headers now live in a single place.
+- `tests/test_ficticio.py` prevents a domain, an email address, or a personal trace from slipping into the repository.
 
-### Documentación
+### Documentation
 
-- «No expone nada por sí mismo» era falso: publica `127.0.0.1:8765`.
-- «El proceso arranca y avisa» era falso: aborta.
-- Variables del servidor que nadie documentaba: `MCP_CONFIG`,
+- "It exposes nothing on its own" was false: it publishes `127.0.0.1:8765`.
+- "The process starts and warns" was false: it aborts.
+- Server variables that nobody documented: `MCP_CONFIG`,
   `MCP_ALLOW_NONLOCAL_BIND`, `MCP_ACCOUNTS_TOML*`, `MCP_GENERATED_CONFIG`,
   `CADDY_*`, `CLOUDFLARED_VERSION`.
-- El nginx del despliegue con systemd no servía las rutas por cuenta.
+- The nginx in the systemd deployment did not serve the routes per account.
 
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.2] — 2026-10-26
 
-### Corregido
+### Fixed
 
-- **El `Dockerfile` no copiaba `scope.py` a la imagen.** El módulo llegó con
-  las rutas por cuenta y se quedó fuera del `COPY`. La imagen no arrancaba:
-  `ModuleNotFoundError: No module named 'scope'`. Los tests locales pasaban
-  porque corren desde el repositorio, donde el fichero sí está.
+- **The `Dockerfile` did not copy `scope.py` into the image.** The module came with
+  the per-account routes and was left out of the `COPY`. The image did not start:
+  `ModuleNotFoundError: No module named 'scope'`. The local tests passed
+  because they run from the repository, where the file does exist.
 
-### Pruebas
+### Tests
 
-- Una prueba arma un directorio con **exactamente lo que copia el Dockerfile** y
-  arranca el servidor desde ahí. Si un módulo o un fichero se queda fuera de
-  la imagen, se ve.
-- Otra comprueba que la lista de módulos que la app importa coincide con la
-  del `COPY`.
+- One test builds a directory with **exactly what the Dockerfile copies** and
+  starts the server from there. If a module or a file is left out of
+  the image, it shows up.
+- Another checks that the list of modules the app imports matches the
+  one in `COPY`.
 
 [1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.3] — 2026-10-26
 
-### Corregido
+### Fixed
 
-- **El contenedor de `audit-rotate` se quedaba "unhealthy" para siempre.** El
-  `HEALTHCHECK` de la imagen espera un servidor HTTP en el 8765, y este
-  servicio no sirve HTTP: es un bucle que vigila el fichero. Fallaba con
-  *Connection refused* en cada intento. Ahora el servicio desactiva el
-  healthcheck heredado.
-- **El rotador no decía nada al arrancar.** Como solo imprimía cuando rotaba
-  algo, y eso tarda una hora, el log salía vacío y el contenedor parecía
-  parado. Ahora dice qué está vigilando.
+- **The `audit-rotate` container stayed "unhealthy" forever.** The
+  `HEALTHCHECK` in the image expects an HTTP server on port 8765, and this
+  service does not serve HTTP: it is a loop that watches the file. It failed with
+  *Connection refused* on every attempt. Now the service disables the inherited healthcheck.
+- **The rotator said nothing on startup.** Since it only printed when it rotated
+  something, and that takes an hour, the log came out empty and the container seemed
+  stopped. Now it says what it is watching.
 
-### Pruebas
+### Tests
 
-- Una comprueba que solo el servicio del servidor hereda el `HEALTHCHECK` de
-  la imagen: los demás tienen que desactivarlo.
+- One checks that only the server service inherits the `HEALTHCHECK` from
+  the image: the others have to disable it.
 
 [1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
 [1.0.2]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.2
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.4] — 2026-10-26
 
-### Corregido
+### Fixed
 
-- **El 421 "Invalid Host header" no decía de dónde venía el problema.** Con un
-  túnel de Cloudflare, la causa más común es que `MCP_ALLOWED_HOSTS` esté
-  definida y no incluya el hostname público: la lista explícita **sustituye**
-  a la derivada de `MCP_PUBLIC_HOST`, y el `Host` que reenvía el túnel se
-  queda fuera. La respuesta ahora dice dónde mirar, sin filtrar la lista de
-  hosts permitidos.
-- **El arranque avisa si `MCP_PUBLIC_HOST` no está en `allowed_hosts`.** Y el
-  log de arranque dice ya cuáles son los hosts y orígenes permitidos, para no
-  tener que deducirlos.
+- **The 421 "Invalid Host header" did not say where the problem came from.** With a
+  Cloudflare tunnel, the most common cause is that `MCP_ALLOWED_HOSTS` is
+  defined and does not include the public hostname: the explicit list **replaces**
+  the one derived from `MCP_PUBLIC_HOST`, and the `Host` that the tunnel forwards is
+  left out. The response now says where to look, without leaking the list of
+  allowed hosts.
+- **Startup warns if `MCP_PUBLIC_HOST` is not in `allowed_hosts`.** And the startup
+  log now states which hosts and origins are allowed, so they do not have to be
+  inferred.
 
-### Pruebas
+### Tests
 
-- El 421 incluye la pista y no filtra los hosts permitidos.
-- El aviso de arranque salta cuando el host público se queda fuera de la
-  lista, y no salta cuando está dentro.
+- The 421 includes the hint and does not leak the allowed hosts.
+- The startup warning fires when the public host is left out of the
+  list, and does not fire when it is inside it.
 
 [1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
 [1.0.3]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.3
@@ -683,15 +464,14 @@ Correcciones de una auditoría completa del proyecto.
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.5] — 2026-10-26
 
-### Diagnóstico
+### Diagnostics
 
-- **El log dice qué `Host` llegó y cuáles se aceptan.** Con un túnel, el
-  culpable puede ser que el `Host` que reenvía Cloudflare no sea el hostname
-  público (por ejemplo, si la ruta tiene un *HTTP Host Header* distinto), o que
-  la lista de hosts no lo incluya. Con una línea de log, se sabe cuál de los
-  dos es.
-- **La respuesta del 421 incluye el `Host` recibido.** El llamante ya conoce
-  el suyo, y es la pista que faltaba.
+- **The log says which `Host` arrived and which ones are accepted.** With a tunnel, the culprit
+  may be that the `Host` Cloudflare forwards is not the public hostname (for example, if the route has a different *HTTP Host Header*), or that
+  the host list does not include it. With one log line, you can tell which of
+  the two it is.
+- **The 421 response includes the `Host` received.** The caller already knows
+  its own, and it is the missing clue.
 
 [1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
 [1.0.4]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.4
@@ -700,12 +480,12 @@ Correcciones de una auditoría completa del proyecto.
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.6] — 2026-10-26
 
-### Diagnóstico
+### Diagnostics
 
-- **El arranque dice por qué una capacidad de escritura está apagada.** Encender
-  `MCP_ENABLE_MARK` no basta: la cuenta también necesita
-  `MCP_ACCOUNT_ALLOW_MARK_<N>=true`. Con una sola de las dos, la tool no
-  aparece en `tools/list` y no había forma de saber por qué.
+- **Startup says why a write capability is turned off.** Enabling
+  `MCP_ENABLE_MARK` is not enough: the account also needs
+  `MCP_ACCOUNT_ALLOW_MARK_<N>=true`. With only one of the two, the tool
+  does not appear in `tools/list` and there was no way to tell why.
 
   ```
   INFO     Servidor listo: 1 cuentas, escucha 0.0.0.0:8765, escritura=ninguna
@@ -713,8 +493,8 @@ Correcciones de una auditoría completa del proyecto.
            MCP_ACCOUNT_ALLOW_MARK_<N>=true en la cuenta
   ```
 
-- `list_accounts` documenta que `can_send`, `can_mark`, `can_delete` y
-  `can_draft` reflejan las dos puertas.
+- `list_accounts` documents that `can_send`, `can_mark`, `can_delete` and
+  `can_draft` reflect the two doors.
 
 [1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
 [1.0.5]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.5
@@ -724,26 +504,16 @@ Correcciones de una auditoría completa del proyecto.
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.7] — 2026-10-26
 
-### Corregido
+### Fixed
 
-- **El argumento `account` de las tools era obligatorio incluso en una ruta de
-  una sola cuenta.** En `/mcp/<cuenta>` la cuenta ya la fija la ruta, pero el
-  modelo tenía que además saber la clave y pasarla. Si no la pasaba,
-  pydantic rechazaba la llamada antes de llegar al código:
-  `Tool 'list_messages' rejected arguments: ['account']`.
+- **The `account` argument of the tools was required even on a single-account route.** On `/mcp/<cuenta>` the route already fixes the account, but the model also had to know the key and pass it. If it did not, pydantic rejected the call before it reached the code: `Tool 'list_messages' rejected arguments: ['account']`.
 
-  Ahora `account` es opcional en todas las tools. Si la ruta expone una sola
-  cuenta, se usa esa. Si expone varias, hay que indicarla, y el error dice
-  cuáles hay: *"Indica la cuenta. En esta ruta hay: ..."*.
-- **Ruido en el log al cerrar la conexión IMAP.** `logout()` ya cierra el
-  socket, así que el `shutdown()` de después era un doble cierre que fallaba
-  siempre y escribía *"No se pudo cerrar el socket IMAP de ..."* en cada
-  petición. Ahora el cierre explícito solo se hace si `logout()` falla.
+  Now `account` is optional in all tools. If the route exposes a single account, that one is used. If it exposes several, the account must be specified, and the error says which ones are available: *"Specify the account. On this route there are: ..."*.
+- **Noise in the log when closing the IMAP connection.** `logout()` already closes the socket, so the `shutdown()` afterwards was a double close that always failed and wrote *"Could not close the IMAP socket for ..."* on every request. Now the explicit close is only done if `logout()` fails.
 
-### Documentación
+### Documentation
 
-- Las rutas por cuenta y el argumento opcional, explicados en el README y en
-  la guía de configuración.
+- The per-account routes and the optional argument, explained in the README and the configuration guide.
 
 [1.0.7]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.7
 [1.0.6]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.6
@@ -754,13 +524,9 @@ Correcciones de una auditoría completa del proyecto.
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.8] — 2026-10-26
 
-### Corregido
+### Fixed
 
-- **El arranque listaba las dos variables de una capacidad aunque la global ya
-  estuviera puesta.** Decía *"marcado necesita `MCP_ENABLE_MARK=true` y
-  `MCP_ACCOUNT_ALLOW_MARK_<N>=true`"*, y con la global ya en `true` eso lleva
-  a dudar de la que ya está bien. Ahora cada capacidad dice **solo lo que
-  falta**, y cuando es el permiso por cuenta, con un ejemplo copiable:
+- **Startup listed both variables of a capability even when the global one was already set.** It said *"marcado needs `MCP_ENABLE_MARK=true` and `MCP_ACCOUNT_ALLOW_MARK_<N>=true`"*, and with the global already at `true` that leads you to doubt the one that is already correct. Now each capability states **only what is missing**, and when it is the per-account permission, it includes a copyable example:
 
   ```
   INFO     Por qué están apagadas: marcado: falta MCP_ACCOUNT_ALLOW_MARK_<N>=true
@@ -777,35 +543,26 @@ Correcciones de una auditoría completa del proyecto.
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.0.9] — 2026-10-26
 
-### Cambiado
+### Changed
 
-- **El permiso por cuenta de escritura es un override opcional, no un segundo
-  interruptor.** Antes hagan falta las dos cosas: el global
-  (`MCP_ENABLE_MARK=true`) y el permiso de la cuenta
-  (`MCP_ACCOUNT_ALLOW_MARK_<N>=true`). Encender una capacidad eran dos
-  cambios en dos sitios, y el síntoma —que la tool no aparezca— no decía
-  cuál faltaba.
+- **The per-account write permission is an optional override, not a second switch.** Before, both were required: the global one (`MCP_ENABLE_MARK=true`) and the account's permission (`MCP_ACCOUNT_ALLOW_MARK_<N>=true`). Enabling a capability took two changes in two places, and the symptom (the tool not appearing) did not say which one was missing.
 
-  Ahora el global es el maestro y además el valor por defecto:
+  Now the global setting is the master and also the default:
 
-  | Global | Permiso de la cuenta | Resultado |
+  | Global | Account permission | Result |
   | --- | --- | --- |
-  | `false` | lo que sea | apagada: el global manda |
-  | `true` | sin definir | encendida: la cuenta lo hereda |
-  | `true` | `true` | encendida |
-  | `true` | `false` | apagada para esa cuenta: manda la cuenta |
+  | `false` | whatever | off: the global wins |
+  | `true` | unset | on: the account inherits it |
+  | `true` | `true` | on |
+  | `true` | `false` | off for that account: the account wins |
 
-  El override por cuenta sigue sirviendo para dejar fuera una cuenta sin
-  apagar la capacidad entera.
+  The per-account override still works to exclude one account without turning off the whole capability.
 
-  **Esto también cambia el `accounts.toml`**: una cuenta sin `allow_send` ahora
-  hereda el `enable_send` global, en vez de estar apagada.
+  **This also changes the `accounts.toml`**: an account without `allow_send` now inherits the global `enable_send`, instead of being off.
 
-### Añadido
+### Added
 
-- `write_capabilities_detail` distingue los dos motivos por los que una
-  capacidad puede estar apagada: que falte el global, o que todas las
-  cuentas la tengan en `false`.
+- `write_capabilities_detail` distinguishes the two reasons a capability may be off: the global setting is missing, or all accounts have it set to `false`.
 
 [1.0.9]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.9
 [1.0.8]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.8
@@ -818,29 +575,22 @@ Correcciones de una auditoría completa del proyecto.
 [1.0.1]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.1
 ## [1.1.0] — 2026-10-26
 
-### Añadido
+### Added
 
-- **Nombre visible del remitente: `MCP_ACCOUNT_SENDER_<N>`.** El `From` de los
-  correos salientes era solo la dirección, así que quien lo recibía veía el
-  nombre de la cuenta sin el dominio. Con esta variable:
+- **Visible sender name: `MCP_ACCOUNT_SENDER_<N>`.** The `From` header of outgoing emails contained only the address, so the recipient saw the account name without the domain. With this variable:
 
   ```bash
   MCP_ACCOUNT_SENDER_1=Ada Lovelace
   ```
 
-  el `From` pasa a ser `Ada Lovelace <ada@corp.example.com>`, y en el
-  `accounts.toml` se llama `sender`.
+  the `From` becomes `Ada Lovelace <ada@corp.example.com>`, and in the `accounts.toml` it is called `sender`.
 
-  El nombre se escapa con las reglas de la RFC 5322: si lleva coma o comillas,
-  se entrecomilla, para que no parta la dirección en dos. Un salto de línea se
-  rechaza al cargar la configuración, no ya al enviar: acabaría en una cabecera
-  y permitiría inyectar un `Bcc` de verdad. El sobre SMTP sigue llevando la
-  dirección pelada.
+  The name is escaped according to RFC 5322 rules: if it contains a comma or quotes, it is quoted so it does not split the address in two. A line break is rejected when the configuration is loaded, not when sending: it would end up in a header and would allow injecting a real `Bcc`. The SMTP envelope still carries the bare address.
 
-### Documentación
+### Documentation
 
-- `SENDER` en la lista de campos de cuenta, en el `.env.example` y en el
-  ejemplo de `accounts.toml`.
+- `SENDER` in the account fields list, in the `.env.example`, and in the
+  `accounts.toml` example.
 
 [1.1.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.1.0
 [1.0.9]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v1.0.9
@@ -856,95 +606,94 @@ Correcciones de una auditoría completa del proyecto.
 
 ## [2.0.0] — 2026-10-26
 
-Un panel de control en un segundo puerto, y las cuentas de correo en una
-base de datos en vez de en variables de entorno. **El contrato de las rutas
-cambia**, y por eso es una versión mayor.
+A control panel on a second port, and mail accounts stored in a
+database instead of environment variables. **The routes contract
+changes**, which is why this is a major version.
 
-### Añadido
+### Added
 
-- **Panel de control en su propio puerto.** Una segunda superficie HTTP, en
-  el mismo proceso y otro puerto, para dar de alta dominios y cuentas sin
-  tocar el despliegue. Tiene su propia credencial (`MCP_DASHBOARD_TOKEN`),
-  su propia sesión firmada y su propia capa anti-CSRF. **No puede leer ni
-  escribir un buzón**: solo gestiona la configuración y prueba conexiones.
-- **Las cuentas en una base de datos SQLite.** La base es la **única** fuente
-  de las cuentas. No hay variables `MCP_ACCOUNT_<CAMPO>_<N>` ni fichero de
-  configuración: las cuentas se dan de alta en el panel, y una instalación
-  nueva empieza vacía.
-- **Cuentas por dominio.** Un dominio agrupa cuentas y les da un servidor
-  IMAP y SMTP por defecto, unos permisos y una credencial propia. La
-  cadena de permisos crece un nivel: global → dominio → cuenta.
-- **Exposición en tiempo real.** Una cuenta creada en el panel está en su
-  ruta `/mcp/<cuenta>` en la siguiente petición. Sin reiniciar. El
-  contador de revisiones vive en la base, así que funciona igual dentro de
-  un proceso que entre dos.
-- **Ruta por dominio: `/mcp/<dominio>`.** Abre las cuentas del dominio, con
-  la credencial del dominio o la general.
-- **Token por dominio y token por cuenta**, generados y rotados desde el
-  panel. Se muestran una sola vez.
-- **Botón de probar.** Valida la conexión IMAP (y SMTP) con la contraseña
-  recién escrita, antes de guardar. Usa el mismo código que el resto del
-  servidor, así que el mensaje es el mismo que saldría al leer el buzón.
-- **Contraseñas cifradas en reposo**, con AES-GCM y una clave que **no**
-  está en la base de datos (`MCP_DASHBOARD_KEY`). El arranque comprueba que
-  la clave corresponde a la base y, si no, para y lo dice.
-- **Auditoría del panel.** Todo lo que hace queda en el mismo JSONL que las
-  tools, con su propio nombre y sin secretos.
+- **Control panel on its own port.** A second HTTP surface, in the same
+  process and on another port, to register domains and accounts without
+  touching the deployment. It has its own credential (`MCP_DASHBOARD_TOKEN`),
+  its own signed session, and its own anti-CSRF layer. **It cannot read or
+  write a mailbox**: it only manages configuration and tests connections.
+- **Accounts in a SQLite database.** The database is the **only** source
+  of accounts. There are no `MCP_ACCOUNT_<CAMPO>_<N>` variables or configuration file:
+  accounts are created in the panel, and a new installation starts empty.
+- **Accounts per domain.** A domain groups accounts and gives them a default
+  IMAP and SMTP server, permissions, and their own credential. The
+  permission chain gains one level: global → domain → account.
+- **Real-time exposure.** An account created in the panel is available at
+  its `/mcp/<cuenta>` route on the next request. No restart needed. The
+  revision counter lives in the database, so it works the same within one
+  process or across two.
+- **Per-domain route: `/mcp/<dominio>`.** Opens the domain's accounts, using the
+  domain credential or the general one.
+- **Per-domain token and per-account token**, generated and rotated from the
+  panel. They are shown only once.
+- **Test button.** Validates the IMAP connection (and SMTP) with the
+  just-entered password, before saving. It uses the same code as the rest of
+  the server, so the message is the same one you would get when reading the
+  mailbox.
+- **Passwords encrypted at rest**, with AES-GCM and a key that is **not**
+  stored in the database (`MCP_DASHBOARD_KEY`). On startup, the server checks that
+  the key matches the database and, if it doesn't, stops and says so.
+- **Panel audit log.** Everything done in the panel is recorded in the same
+  JSONL as the tools, under its own name and without secrets.
 
-### Cambiado
+### Changed
 
-- **El panel y la base de datos no son opcionales.** Son la forma de
-  gestionar las cuentas. `MCP_DASHBOARD_KEY` y `MCP_DASHBOARD_TOKEN` son
-  obligatorias, y si faltan el arranque para diciendo cuál. `MCP_DASHBOARD_DB`
-  es la ruta del fichero, no un interruptor: por defecto `cuentas.db`, y en
-  el contenedor sobre el volumen de datos.
-- **`MCP_ACCOUNTS` desaparece.** La lista de índices de cuenta no hacía
-  falta: los índices se descubren solos. Con la lista, además, un
-  descuadre abortaba el arranque por algo que no era un error de
-  configuración.
-- **`/mcp` ya no expone todas las cuentas.** Pasa a ser la puerta de
-  entrada: la guía (el catálogo de rutas) y, si hay uno, el dominio marcado
-  como por defecto. Para abrir un buzón hay que nombrar la cuenta o el
-  dominio. `list_accounts` devuelve el catálogo, con la ruta de cada
-  cuenta y de cada dominio.
-- **La credencial tiene que abrir la ruta.** `MCP_BEARER_TOKEN` es el bearer
-  general. El de un dominio abre la ruta de su dominio y las de sus
-  cuentas; el de una cuenta, solo la suya. Una credencial de cuenta en
-  `/mcp/<dominio>` responde 403, aunque el dominio tenga una sola cuenta.
-- **La lista de tools de escritura depende del interruptor global**, no de
-  las cuentas: la lista se fija al arrancar y las cuentas pueden cambiar
-  después. El permiso por cuenta se sigue comprobando en cada llamada, que
-  es donde se comprueba de todos modos.
-- **Sin cuentas ya no es un error de arranque.** Las da de alta el panel.
-- **Se retira la configuración por fichero y por variables de cuenta.**
+- **The panel and the database are no longer optional.** They are how
+  accounts are managed. `MCP_DASHBOARD_KEY` and `MCP_DASHBOARD_TOKEN` are required, and if either
+  is missing, startup stops and says which one. `MCP_DASHBOARD_DB` is the file path,
+  not a switch: by default it is `cuentas.db`, and in the container it is on
+  the data volume.
+- **`MCP_ACCOUNTS` is removed.** The list of account indexes was unnecessary:
+  indexes are discovered automatically. Additionally, with the list, a
+  mismatch aborted startup for something that was not a configuration error.
+- **`/mcp` no longer exposes all accounts.** It becomes the entry point:
+  the guide (the route catalog) and, if there is one, the domain marked as
+  default. To open a mailbox, you must name the account or the domain.
+  `list_accounts` returns the catalog, with the route for each account and each
+  domain.
+- **The credential must open the route.** `MCP_BEARER_TOKEN` is the general bearer
+  token. A domain's token opens its domain route and its accounts' routes; an
+  account's token opens only its own. An account credential on `/mcp/<dominio>`
+  returns 403, even if the domain has only one account.
+- **The list of write tools depends on the global switch**, not on the
+  accounts: the list is set at startup, and accounts can change afterward.
+  The per-account permission is still checked on each call, which is where it
+  is checked anyway.
+- **No accounts is no longer a startup error.** The panel creates them.
+- **File-based and per-account variable configuration is removed.**
   `accounts.toml`, `MCP_CONFIG`, `MCP_ACCOUNTS_TOML`, `MCP_ACCOUNTS_TOML_B64`
-  y `MCP_GENERATED_CONFIG` dejan de leerse, y con ellas todas las variables
-  `MCP_ACCOUNT_<CAMPO>_<N>`. La configuración del servidor sigue siendo
-  **entera** por variables `MCP_*`, una por campo. El `entrypoint` del
-  contenedor, que solo preparaba el TOML, desaparece: la imagen ejecuta el
-  servidor directamente.
-- **El texto de arranque dice de dónde viene la configuración.** Siempre son
-  variables de entorno, y el panel lo dice cuando la base está vacía.
+  and `MCP_GENERATED_CONFIG` are no longer read, and with them all the `MCP_ACCOUNT_<CAMPO>_<N>`
+  variables. The server configuration remains **entirely** based on
+  `MCP_*` variables, one per field. The `entrypoint` in the container, which
+  only generated the TOML, is removed: the image runs the server directly.
+- **The startup text states where the configuration comes from.** It is
+  always environment variables, and the panel says so when the database is
+  empty.
 
-### Corregido
+### Fixed
 
-- **El panel podía morir en silencio.** Hacía el `bind` en su hilo: si el
-  puerto estaba ocupado, el hilo moría, el log decía "Panel en marcha" y
-  el proceso seguía vivo **sin panel**. Con el panel obligatorio, eso es un
-  proceso roto. Ahora el socket se abre en el hilo principal y, si no
-  puede, el proceso para y lo dice.
+- **The panel could die silently.** It ran `bind` in its thread: if the
+  port was in use, the thread died, the log said "Panel running", and
+  the process stayed alive **without a panel**. With the panel mandatory, that is a
+  broken process. Now the socket is opened in the main thread and, if it
+  cannot be opened, the process stops and says so.
 
-### Seguridad
+### Security
 
-- El panel escucha en `127.0.0.1` y su puerto se publica en loopback.
-- La sesión del panel es una cookie firmada con HMAC, `HttpOnly` y
-  `SameSite=Strict`, con caducidad.
-- Las peticiones que cambian algo exigen la cabecera `X-MCP-Dashboard`:
-  un formulario de otro sitio no puede poner una cabecera a medida.
-- La API nunca devuelve una contraseña. Al leer una cuenta se ve si tiene
-  contraseña, no cuál es.
-- La base de datos va en un volumen. Sin él, el contenedor es de solo
-  lectura y las cuentas se pierden en cada reinicio.
+- The panel listens on `127.0.0.1` and its port is published on loopback.
+- The panel session is a cookie signed with HMAC, `HttpOnly` and
+  `SameSite=Strict`, with expiration.
+- Requests that change anything require the `X-MCP-Dashboard` header:
+  a form from another site cannot set a custom header.
+- The API never returns a password. When reading an account, it shows whether
+  the account has a password, not which one it is.
+- The database lives on a volume. Without it, the container is read-only and
+  accounts are lost on every restart.
 
 [2.4.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.4.0
 [2.0.0]: https://github.com/davidneyra2804/mailproxy-mcp/releases/tag/v2.0.0

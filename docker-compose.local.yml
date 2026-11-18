@@ -1,4 +1,4 @@
-# Desarrollo local. Las cuentas se crean desde el panel.
+# Local development. The accounts are created from the panel.
 # docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 services:
   mcp:

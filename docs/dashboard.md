@@ -1,45 +1,36 @@
-# El panel de control
+# The control panel
 
-Un panel web para dar de alta las cuentas de correo sin tocar el
-despliegue. Escucha en **su propio puerto**, separado del MCP, y tiene su
-propia credencial.
+A web panel for adding mail accounts without touching the deployment. It listens on **its own port**, separate from the MCP, and has its own credential.
 
-Las cuentas salen de una base de datos SQLite. Y en cuanto existen, están
-expuestas en `/mcp`: **no hay que reiniciar nada**.
+Accounts are stored in a SQLite database. As soon as they exist, they are exposed at `/mcp`: **there is no need to restart anything**.
 
-## Qué es y qué no es
+## What it is and what it is not
 
 | | |
 | --- | --- |
-| Gestiona dominios y cuentas | Sí |
-| Genera y rota tokens | Sí |
-| Prueba una conexión IMAP o SMTP antes de guardar | Sí |
-| Lee o escribe un buzón | **No** |
+| Manages domains and accounts | Yes |
+| Generates and rotates tokens | Yes |
+| Tests an IMAP or SMTP connection before saving | Yes |
+| Reads or writes a mailbox | **No** |
 
-El panel no registra tools del MCP, no habla con el SDK y no puede tocar
-un buzón. Esa frontera es a propósito: un panel abierto no debe poder
-enviar correo.
+The panel does not register MCP tools, does not talk to the SDK, and cannot touch a mailbox. This boundary is intentional: an exposed panel must not be able to send email.
 
-## Arrancarlo
+## Starting it
 
-El panel y la base de datos **siempre están**: son la forma de gestionar las
-cuentas. No hay un interruptor que los encienda.
+The panel and the database **are always present**: they are the way to manage accounts. There is no switch that turns them on.
 
-Dos secretos son obligatorios:
+Two secrets are mandatory:
 
 ```bash
 MCP_DASHBOARD_KEY=la-clave-con-la-que-se-cifran-las-contrasenas
 MCP_DASHBOARD_TOKEN=la-credencial-de-acceso-al-panel
 ```
 
-Si falta alguno, el proceso **no arranca** y dice cuál falta. No se arranca
-a medias.
+If either one is missing, the process **does not start** and reports which one is missing. It does not start halfway.
 
-La ruta de la base de datos es `MCP_DASHBOARD_DB`, y por defecto es
-`cuentas.db`, en el directorio de trabajo. **Ponla donde persista**: en el
-contenedor, sobre el volumen de datos.
+The database path is `MCP_DASHBOARD_DB`, and by default it is `cuentas.db`, in the working directory. **Put it where it will persist**: in the container, on the data volume.
 
-### En Docker
+### In Docker
 
 ```yaml
 environment:
@@ -48,105 +39,60 @@ volumes:
   - data:/var/lib/mcp-correo
 ```
 
-El contenedor es de solo lectura: sin ese volumen, la base no se puede
-escribir y el arranque falla. Y sin volumen, las cuentas se pierden en cada
-reinicio.
+The container is read-only: without that volume, the database cannot be written and startup fails. And without a volume, accounts are lost on every restart.
 
-### La clave
+### The key
 
-`MCP_DASHBOARD_KEY` cifra las contraseñas de las cuentas con AES-GCM. **No
-está en la base de datos**: si se pierde, las contraseñas guardadas no se
-pueden descifrar y hay que volver a ponerlas. Guárdala en el mismo sitio
-que el resto de secretos.
+`MCP_DASHBOARD_KEY` encrypts account passwords with AES-GCM. **It is not stored in the database**: if it is lost, the saved passwords cannot be decrypted and must be entered again. Store it in the same place as the other secrets.
 
-El arranque comprueba que la clave corresponde a la base: si no, para y lo
-dice. Sin esa comprobación, el síntoma sería "las cuentas no funcionan" y
-nadie sabría si es la clave o el servidor IMAP.
+Startup checks that the key matches the database: if not, it stops and says so. Without this check, the symptom would be "the accounts don't work" and nobody would know whether the problem is the key or the IMAP server.
 
-### El token
+### The token
 
-`MCP_DASHBOARD_TOKEN` es la credencial del panel, y tiene que ser
-distinta de `MCP_BEARER_TOKEN`. Son dos superficies con dos
-credenciales: el token del MCP no abre el panel, y el del panel no abre
-`/mcp`.
+`MCP_DASHBOARD_TOKEN` is the panel's credential, and it must be different from `MCP_BEARER_TOKEN`. These are two surfaces with two credentials: the MCP token does not open the panel, and the panel token does not open `/mcp`.
 
-## Las cuentas: dónde están
+## The accounts: where they live
 
-La base de datos es **la única fuente de las cuentas**. Se crean, editan y
-eliminan desde el panel; no se importan de variables de entorno ni de ficheros.
-Una base recién creada está vacía hasta que se añadan cuentas en el panel.
+The database is **the only source of accounts**. They are created, edited, and deleted from the panel; they are not imported from environment variables or files. A newly created database is empty until accounts are added in the panel.
 
-## La interfaz
+## The interface
 
-El acceso tiene una pantalla propia: introduce la **clave de acceso al panel**,
-no la contraseña del buzón. La ayuda de configuración técnica está desplegable.
+Access has its own screen: enter the **panel access key**, not the mailbox password. The technical configuration help is in a collapsible section.
 
-Al añadir una cuenta solo necesitas escribir el **correo una vez**, su contraseña
-y, opcionalmente, el nombre que verán los destinatarios. El correo se utiliza
-como identificador de ruta y usuario de conexión. El dominio se selecciona
-automáticamente si ya existe, y puedes cambiarlo manualmente.
+When adding an account, you only need to type the **email address once**, its password and, optionally, the name recipients will see. The email address is used as the route identifier and as the connection user. The domain is selected automatically if it already exists, and you can change it manually.
 
-En **Opciones avanzadas** puedes indicar un alias de ruta, una etiqueta o un
-usuario de conexión distinto y servidores propios. Al editar se conservan las
-excepciones existentes; dejar la contraseña vacía conserva la actual.
+Under **Advanced options** you can set a route alias, a label, or a different connection user, and your own servers. When editing, existing exceptions are kept; leaving the password empty keeps the current one.
 
-Ahí mismo están los **permisos de escritura**, con tres valores: *Heredar*
-(sin decidir, manda el dominio y detrás el interruptor global), *Permitir* y
-*Prohibir*. Los del dominio se ponen al editar el dominio; los de la cuenta,
-al editar la cuenta. Cada capacidad va por separado:
+Here are also the **write permissions**, with three values: *Inherit* (undecided, the domain decides and behind it the global switch), *Allow* and *Deny*. Domain permissions are set when editing the domain; account permissions, when editing the account. Each capability is set separately:
 
-| Permiso | Capacidad |
+| Permission | Capability |
 | --- | --- |
-| `allow_send` | Enviar con confirmación (`prepare_send` + `send_message`). |
-| `allow_mark` | Marcar como leído o no leído. |
-| `allow_delete` | Mover a la Papelera o borrar. |
-| `allow_drafts` | Guardar borradores. |
-| `allow_direct_send` | Enviar en una sola llamada, sin confirmación por mensaje. |
+| `allow_send` | Send with confirmation (`prepare_send` + `send_message`). |
+| `allow_mark` | Mark as read or unread. |
+| `allow_delete` | Move to Trash or delete. |
+| `allow_drafts` | Save drafts. |
+| `allow_direct_send` | Send in a single call, without per-message confirmation. |
 
-El panel está en `http://127.0.0.1:8766` (o donde lo publiques). Se entra
-con el token y se abre una sesión.
+The panel is at `http://127.0.0.1:8766` (or wherever you publish it). You sign in with the token and a session is opened.
 
-- Los **dominios** se listan como secciones, cada una con sus cuentas.
-- Cada cuenta muestra su **ruta**, tal y como se escribe:
-  `/mcp/ada@corp.example.com`. Es lo que se le pasa a un cliente.
-- Cada cuenta tiene dos botones de copiar: **Copiar URL** pone en el
-  portapapeles la URL completa del MCP de esa cuenta, con el host
-  público (`https://mcp.example.com/mcp/ada@corp.example.com`), y
-  **Copiar token** pone el token de acceso vigente de esa cuenta.
-  Ninguno de los dos renueva el token: copiarlo no cambia nada. Si el
-  portapapeles no está disponible, el panel avisa y enseña el valor
-  para copiarlo a mano.
-- Un botón marca el dominio como **por defecto**: es el que abre `/mcp`.
-  Solo uno puede estarlo.
-- El botón **Token** genera uno nuevo para una cuenta o un dominio, y lo
-  muestra **una sola vez**.
-- El botón **Probar** valida la conexión IMAP con lo que hay en el
-  formulario, sin guardar nada. Si algo está mal (el host, el puerto, el
-  SSL, la contraseña), se ve ahí y no cuando el agente intenta leer el
-  buzón.
-- Una cuenta se puede **desactivar** sin borrarla: deja de exponerse, y
-  sus datos siguen ahí.
+- **Domains** are listed as sections, each with its accounts.
+- Each account shows its **route**, exactly as it is written: `/mcp/ada@corp.example.com`. This is what is passed to a client.
+- Each account has two copy buttons: **Copy URL** copies the full MCP URL for that account to the clipboard, with the public host (`https://mcp.example.com/mcp/ada@corp.example.com`), and **Copy token** copies that account's current access token. Neither one renews the token: copying does not change anything. If the clipboard is not available, the panel warns you and shows the value so you can copy it by hand.
+- A button marks a domain as **default**: it is the one that `/mcp` opens. Only one can be default.
+- The **Token** button generates a new one for an account or a domain, and shows it **only once**.
+- The **Test** button validates the IMAP connection with what is in the form, without saving anything. If something is wrong (the host, the port, SSL, the password), it shows up there and not when the agent tries to read the mailbox.
+- An account can be **disabled** without being deleted: it stops being exposed, and its data remains in place.
 
-### Cancelar y el menú de tres puntos
+### Cancel and the three-dot menu
 
-Dos detalles del comportamiento del panel que conviene que no se
-confunden con un fallo:
+Two details of the panel's behavior that should not be mistaken for a bug:
 
-- **«Cancelar»** cierra el diálogo sin guardar nada y sin preguntar por
-  los campos vacíos. «Guardar cambios» sí los valida: un correo o una
-  contraseña que no valen son un error, y no se guarda. Cancelar es la
-  vía de salida, así que no puede depender de que el formulario esté
-  relleno.
-- El **menú de tres puntos** de cada cuenta se abre **entero**, aunque la
-  cuenta esté cerca del borde de abajo del panel. Si no cabe debajo, se
-  abre hacia arriba. Sus entradas —renovar la clave, desactivar y
-  eliminar— se pueden pulsar todas.
+- **"Cancelar"** closes the dialog without saving anything and without asking about empty fields. "Guardar cambios" does validate them: an invalid email or password is an error, and nothing is saved. Cancel is the way out, so it cannot depend on the form being filled in.
+- Each account's **three-dot menu** opens **in full**, even when the account is near the bottom edge of the panel. If it does not fit below, it opens upward. All of its entries (renew the key, disable, and delete) can be clicked.
 
-### Comprobarlo en un navegador real
+### Checking it in a real browser
 
-Lo que un test no puede comprobar —que el modal se cierre de verdad, que
-un menú no se recorte, que el teclado llegue a los controles— se
-comprueba abriendo el panel en Chromium:
+What a test cannot verify (that the modal really closes, that a menu is not clipped, that the keyboard reaches the controls) is checked by opening the panel in Chromium:
 
 ```bash
 .venv/bin/pip install -r requirements-browser.txt
@@ -156,54 +102,36 @@ MCP_PUBLIC_HOST=mcp.example.com \
   .venv/bin/python herramientas/comprobar_cuentas_navegador.py
 ```
 
-Levanta el panel sobre una base ficticia (dominios de la RFC 2606 y
-tokens de mentira) y comprueba el modal de cuenta y el menú de tres
-puntos. `herramientas/comprobar_panel_navegador.py` hace lo mismo con el
-tema y los botones de copiar.
+It raises the panel over a fictitious base (RFC 2606 domains and dummy tokens) and checks the account modal and the three-dot menu. `herramientas/comprobar_panel_navegador.py` does the same with the theme and the copy buttons.
 
-### Copiar la URL y el token
+### Copying the URL and the token
 
-Los dos botones de copiar resuelven el paso que más molesta al configurar
-un cliente MCP: tener que leer la ruta de la pantalla, acordarse del host
-público y buscar el token en algún sitio.
+The two copy buttons solve the step that is most annoying when configuring an MCP client: having to read the path from the screen, remember the public host, and look for the token somewhere.
 
-- **Copiar URL** devuelve la URL completa: esquema, host público y la
-  ruta de la cuenta. El host es el de `MCP_PUBLIC_HOST`, no el de
-  escucha: el cliente habla con el servidor por fuera del túnel.
-- **Copiar token** devuelve el token **vigente** de esa cuenta, el mismo
-  que abre su ruta. No lo renueva: la operación es una lectura.
+- **Copiar URL** returns the full URL: scheme, public host, and the account's path. The host is that of `MCP_PUBLIC_HOST`, not the listening one: the client talks to the server from outside the tunnel.
+- **Copiar token** returns the **current** token for that account, the same one that opens its path. It does not renew it: the operation is a read.
 
-El token de una cuenta se guarda en la base en claro, igual que estaba
-antes de este botón: no se ha cambiado el modelo de seguridad, solo se
-lee lo que ya había. La contraseña sí sigue cifrada con
-`MCP_DASHBOARD_KEY`.
+An account's token is stored in the database in plain text, just as it was before this button: the security model has not changed, only what was already there is read. The password is still encrypted with `MCP_DASHBOARD_KEY`.
 
-Lo que el panel **no** hace es enseñar los tokens de golpe: la lista de
-dominios solo dice si cada cuenta tiene credencial o no. El token de una
-cuenta se pide cuando alguien lo copia, y la petición queda en la
-auditoría (`dashboard_read_account_token`), con el valor tapado.
+What the panel **does not** do is display all the tokens at once: the domain list only says whether each account has a credential or not. An account's token is requested when someone copies it, and the request is recorded in the audit log (`dashboard_read_account_token`), with the value masked.
 
-### Probar antes de guardar
+### Testing before saving
 
-El botón de probar abre una conexión de verdad, hace login, mira las
-carpetas y se cierra. No guarda nada, no envía nada y no deja rastro en
-el buzón.
+The test button opens a real connection, logs in, looks at the folders, and closes. It does not save anything, does not send anything, and leaves no trace in the mailbox.
 
-Usa el mismo código de conexión que el resto del servidor, así que el
-mensaje que sale es el mismo que saldría al leer el buzón. Y la contraseña
-no sale en el mensaje de error.
+It uses the same connection code as the rest of the server, so the message it outputs is the same one that would appear when reading the mailbox. And the password does not appear in the error message.
 
-## Las rutas del MCP
+## The MCP routes
 
-Con cuentas en la base, el servidor expone tres rutas:
+With accounts in the database, the server exposes three routes:
 
-| Ruta | Ámbito |
+| Route | Scope |
 | --- | --- |
-| `/mcp` | La guía: el catálogo de rutas. Y el dominio por defecto, si lo hay. |
-| `/mcp/<dominio>` | Las cuentas de ese dominio. |
-| `/mcp/<cuenta>` | Esa cuenta. |
+| `/mcp` | The guide: the route catalog. And the default domain, if there is one. |
+| `/mcp/<domain>` | The accounts of that domain. |
+| `/mcp/<account>` | That account. |
 
-El catálogo lo da `list_accounts`. Un ejemplo:
+The catalog is provided by `list_accounts`. An example:
 
 ```json
 {
@@ -223,164 +151,118 @@ El catálogo lo da `list_accounts`. Un ejemplo:
 }
 ```
 
-El agente recibe esa lista y sabe a dónde ir. La ruta general **no**
-expone todos los buzones: para abrir uno hay que nombrarlo.
+The agent receives that list and knows where to go. The general route does **not** expose all mailboxes: to open one, it must be named.
 
-## Los tokens
+## The tokens
 
-Hay tres niveles, y el más específico manda cuando se presenta:
+There are three levels, and the most specific one takes precedence when presented:
 
-| Nivel | Dónde vive | Abre |
+| Level | Where it lives | Opens |
 | --- | --- | --- |
-| General | `MCP_BEARER_TOKEN` | Todas las cuentas |
-| De dominio | `domains.bearer` | Las cuentas de ese dominio |
-| De cuenta | `accounts.bearer` | Esa cuenta |
+| General | `MCP_BEARER_TOKEN` | All accounts |
+| Domain | `domains.bearer` | The accounts of that domain |
+| Account | `accounts.bearer` | That account |
 
-La regla: **la credencial tiene que abrir la ruta**. La de una cuenta no
-abre la ruta de un dominio, aunque el dominio tenga una sola cuenta. La de
-un dominio no abre la ruta de otro.
+The rule: **the credential must open the route**. An account's credential does not open a domain's route, even if the domain has only one account. A domain's credential does not open another domain's route.
 
-El modelo de seguridad es **a nivel de cuenta**: una cuenta, un ámbito,
-una credencial. El dominio y la general son cobertura hacia arriba, para
-quien la necesite.
+The security model is **at the account level**: one account, one scope, one credential. The domain and general tokens are coverage upward, for whoever needs it.
 
-### El token efectivo de una cuenta
+### An account's effective token
 
-El token que el servidor acepta para una cuenta es:
+The token the server accepts for an account is:
 
-1. **el suyo propio**, si la cuenta tiene credencial propia;
-2. **el de su dominio**, si no la tiene pero su dominio sí.
+1. **its own**, if the account has its own credential;
+2. **its domain's**, if it does not have one but its domain does.
 
-La segunda regla no es una cortesía: el servidor abre la ruta de una cuenta
-con la credencial del dominio al que pertenece (`BearerAuth._permite` en
-`server.py`). Por eso el panel puede decir que una cuenta sin credencial
-propia "usa la clave de su dominio" sin mentir.
+The second rule is not a courtesy: the server opens an account's route with the credential of the domain it belongs to (`BearerAuth._permite` in `server.py`). That is why the panel can say that an account without its own credential "uses its domain's key" without being misleading.
 
-Si no hay token propio ni de dominio, la cuenta solo la abre el bearer
-general, y no hay un token que copiar.
+If there is neither a token of its own nor a domain token, the account is opened only by the general bearer, and there is no token to copy.
 
-El panel lo dice con `credential_source` en cada cuenta del listado:
+The panel shows this with `credential_source` on each account in the list:
 
-| `credential_source` | Qué significa |
+| `credential_source` | What it means |
 | --- | --- |
-| `cuenta` | La cuenta tiene credencial propia |
-| `dominio` | La usa la credencial de su dominio |
-| `general` | No hay credencial acotada: solo la general |
+| `cuenta` | The account has its own credential |
+| `dominio` | It uses its domain's credential |
+| `general` | There is no scoped credential: only the general one |
 
-Y la API que devuelve el token vigente de una cuenta es una lectura:
+And the API that returns an account's current token is a read:
 
 ```
 GET /api/accounts/{id}/credenciales
 GET /api/accounts/{id}/credentials
 ```
 
-Las dos rutas son lo mismo —mismo manejador, mismo contrato—. La primera
-es la del panel, en español como el resto de la API; la segunda es la que
-usa la entrega de VYRA-33.
+Both routes are the same: same handler, same contract. The first is the panel's, in Spanish like the rest of the API; the second is the one used by the delivery of VYRA-33.
 
-Devuelve `token`, `origen` y `has_token`, y además `name` y `url`: la URL
-completa del MCP de esa cuenta es lo que se pega en un cliente. **No rota
-nada**: leer el token vigente no invalida el anterior. El valor no se
-escribe en la auditoría: en el registro solo queda el origen.
+It returns `token`, `origen` and `has_token`, plus `name` and `url`: the full URL of the account's MCP is what gets pasted into a client. **It rotates nothing**: reading the current token does not invalidate the previous one. The value is not written to the audit log: the log only records the origin.
 
-Renovar el token es otra operación, y es aparte:
+Renewing the token is a different operation, and it is separate:
 
 ```
 POST /api/accounts/{id}/token
 ```
 
-Esa **rota**: genera uno nuevo e invalida el anterior. El botón de copiar
-usa la lectura, nunca esta.
+That one **rotates**: it generates a new token and invalidates the previous one. The copy button uses the read, never this one.
 
-## El tema del panel
+## The panel's theme
 
-El panel se puede ver en **claro**, en **oscuro** o **como el sistema**.
-La elección se guarda en el navegador y sobrevive a la recarga; en
-«sistema» el panel sigue los cambios de apariencia del dispositivo, sin
-recargar.
+The panel can be shown in **light**, **dark**, or **system**. The choice is stored in the browser and survives a reload; with "system", the panel follows changes to the device's appearance without reloading.
 
-Los colores del panel son variables CSS (`--fondo`, `--texto`, `--borde`,
-`--acento`…). El tema claro y el oscuro solo cambian los valores de esas
-variables: ninguna regla escribe un color a pelo. Así, cambiar de tema no
-deja ninguna parte de la interfaz en el color del otro.
+The panel's colors are CSS variables (`--fondo`, `--texto`, `--borde`, `--acento`…). The light and dark themes only change the values of those variables: no rule sets a color directly. That way, switching theme leaves no part of the interface in the other theme's color.
 
-El atributo `data-tema` en el `<html>` vale `claro` u `oscuro`. En
-«sistema» **no** se pone: es la media query `prefers-color-scheme` la que
-decide, y por eso puede seguir al dispositivo en vivo.
+The `data-tema` attribute on the `<html>` is either `claro` or `oscuro`. Under "system" it is **not** set: the `prefers-color-scheme` media query decides, which is why it can follow the device live.
 
-## Los permisos
+## Permissions
 
-La cadena es la de siempre, con un nivel más:
+The chain is the same as always, with one more level:
 
-| | `MCP_ENABLE_SEND` | `allow_send` del dominio | `allow_send` de la cuenta |
+| | `MCP_ENABLE_SEND` | `allow_send` of the domain | `allow_send` of the account |
 | --- | --- | --- | --- |
-| 1 | `false` | lo que sea | lo que sea | **Apagada** |
-| 2 | `true` | sin definir | sin definir | **Encendida** |
-| 3 | `true` | sin definir | `false` | **Apagada** para esa cuenta |
-| 4 | `true` | `false` | lo que sea | **Apagada** en el dominio |
+| 1 | `false` | whatever | whatever | **Off** |
+| 2 | `true` | undefined | undefined | **On** |
+| 3 | `true` | undefined | `false` | **Off** for that account |
+| 4 | `true` | `false` | whatever | **Off** in the domain |
 
-El interruptor global sigue siendo el maestro: apagado, nada. El dominio
-y la cuenta son overrides opcionales.
+The global switch remains the master: off means nothing is allowed. The domain and the account are optional overrides.
 
-### El envío directo
+### Direct sending
 
-Hay un segundo permiso de envío: `allow_direct_send`, con su propio
-interruptor global `MCP_ENABLE_DIRECT_SEND`. Es independiente de
-`allow_send`.
+There is a second send permission, `allow_direct_send`, with its own global switch, `MCP_ENABLE_DIRECT_SEND`. It is independent of `allow_send`.
 
-- **Envío con confirmación** (`allow_send`): `prepare_send` y después
-  `send_message`. Exige una orden explícita por mensaje.
-- **Envío directo** (`allow_direct_send`): `send_message_direct` envía en
-  una sola llamada, sin confirmación por mensaje.
+- **Sending with confirmation** (`allow_send`): `prepare_send` and then `send_message`. It requires an explicit order for each message.
+- **Direct sending** (`allow_direct_send`): `send_message_direct` sends in a single call, with no per-message confirmation.
 
-El envío directo existe para las rutinas automáticas: un agente que
-extrae pendientes de otro sistema y manda el correo sin intervención
-humana. La autorización es la que se dio de antemano al habilitarlo, y
-se limita a la cuenta (o al dominio) que lo tiene permitido.
+Direct sending exists for automated routines: an agent that extracts pending items from another system and sends the email without human intervention. The authorization is the one given in advance when it was enabled, and it is limited to the account (or domain) that has it permitted.
 
-Para que no se duplique el correo, la tool exige una `idempotency_key`:
-la misma clave con el mismo contenido no vuelve a enviar. Usa una clave
-estable por envío, por ejemplo el identificador del pendiente de origen.
+To prevent duplicate emails, the tool requires a `idempotency_key`: the same key with the same content does not send again. Use a stable key for each send, for example the identifier of the originating pending item.
 
-Si el SMTP rechaza el envío, la clave se libera y se puede reintentar. Si
-el SMTP no responde, el correo pudo haber salido: la clave queda reservada
-en estado incierto y el servidor se niega a reenviar con ella, para no
-duplicar el mensaje.
+If the SMTP server rejects the send, the key is released and the send can be retried. If the SMTP server does not respond, the email may have gone out: the key stays reserved in an uncertain state, and the server refuses to resend with it, so the message is not duplicated.
 
-**No actives el envío directo en una cuenta con la que hable una
-persona.** El modo con confirmación existe justo para ese caso.
+**Do not enable direct sending on an account that a person talks through.** Confirmation mode exists precisely for that case.
 
-## La auditoría
+## Audit
 
-Todo lo que hace el panel queda en el mismo JSONL que las tools del MCP,
-con su propio nombre (`dashboard_add_account`, `dashboard_rotate_token`,
-`dashboard_test_imap`...). Sin cuerpos y sin secretos: las contraseñas y
-los tokens se tapan.
+Everything the panel does is recorded in the same JSONL file as the MCP tools, under its own names (`dashboard_add_account`, `dashboard_rotate_token`, `dashboard_test_imap`...). No bodies and no secrets: passwords and tokens are masked.
 
 ```bash
 docker compose exec mcp python -c "print(open('/var/log/mcp-correo/audit.jsonl').read())"
 ```
 
-## Exponer el panel
+## Exposing the panel
 
-Por defecto escucha en `127.0.0.1` y el compose publica el puerto en
-loopback. **El panel ve las contraseñas**: publicarlo en abierto es una
-decisión que hay que querer.
+By default it listens on `127.0.0.1` and the compose file publishes the port on loopback. **The panel can see the passwords**: publishing it openly is a decision you need to mean.
 
-Si hay que exponerlo, mejor detrás de Cloudflare Access que con el token
-solo.
+If you do need to expose it, it's better behind Cloudflare Access than with the token alone.
 
-## La base de datos
+## The database
 
-Un fichero SQLite, en WAL, con las contraseñas cifradas. El esquema tiene
-versión y las migraciones se aplican al arrancar. El contador de revisiones
-vive en la base, y es lo que permite que el servidor recargue las cuentas
-sin reiniciar: escribe el panel, lee el servidor, y se entera.
+A SQLite file, in WAL mode, with the passwords encrypted. The schema is versioned and migrations are applied at startup. The revision counter lives in the database, and it is what lets the server reload accounts without restarting: the panel writes, the server reads, and it notices.
 
-Para inspeccionarla:
+To inspect it:
 
 ```bash
 docker compose exec mcp python -c "import sqlite3; print(sqlite3.connect('/var/lib/mcp-correo/cuentas.db').execute('select id, name, is_default from domains').fetchall())"
 ```
 
-Las contraseñas se ven cifradas. A propósito.
+The passwords are shown encrypted. On purpose.

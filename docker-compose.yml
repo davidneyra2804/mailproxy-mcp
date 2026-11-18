@@ -1,35 +1,36 @@
-# Stack de Portainer. Toda la configuración va en variables de entorno:
-# en el formulario del stack, en "Load variables from .env file", o en un
-# fichero .env junto al compose.
+# Portainer stack. All configuration goes in environment variables: in the
+# stack form, under "Load variables from .env file", or in an .env file
+# next to the compose file.
 #
-# Este es el stack base: el MCP, el panel de control y la rotación de la
-# auditoría.
+# This is the base stack: the MCP server, the control panel, and the audit
+# log rotation.
 #
-#   docker-compose.tunnel.yml   Cloudflare Tunnel. No hace falta abrir
-#                                ningún puerto en el host.
-#   docker-compose.proxy.yml     Caddy con TLS propio (Let's Encrypt).
+#   docker-compose.tunnel.yml   Cloudflare Tunnel. No port has to be opened
+#                                on the host.
+#   docker-compose.proxy.yml     Caddy with its own TLS (Let's Encrypt).
 #
-# En Portainer se añaden como "Additional paths", que es lo mismo que
-# pasar varios -f a docker compose.
+# In Portainer they are added as "Additional paths", which is the same as
+# passing several -f to docker compose.
 #
-# La imagen local se llama mailproxy-mcp:local y no está en un registro.
-# Portainer ejecuta `docker compose pull` antes de `up`: pull_policy
-# build/never hace que ese pull no la busque.
-# Imagen ya publicada: MCP_IMAGE=registro/mailproxy-mcp:1 y MCP_PULL_POLICY=always.
+# The local image is called mailproxy-mcp:local and is not in a registry.
+# Portainer runs `docker compose pull` before `up`: the pull_policy
+# build/never setting keeps that pull from looking for it.
+# Already published image: MCP_IMAGE=registry/mailproxy-mcp:1 and MCP_PULL_POLICY=always.
 #
-# El contenedor escucha en 0.0.0.0:8765 porque el proxy o el túnel llegan
-# por la red de Docker. El puerto del host sale solo en 127.0.0.1.
+# The container listens on 0.0.0.0:8765 because the proxy or the tunnel
+# reaches it through the Docker network. The host port is published on
+# 127.0.0.1 only.
 #
-# El panel escucha en 0.0.0.0:8766 y su puerto sale también en 127.0.0.1.
-# El panel ve las contraseñas de las cuentas: no lo publiques fuera de
-# loopback.
+# The panel listens on 0.0.0.0:8766 and its host port is published on
+# 127.0.0.1 as well. The panel sees the account passwords: do not publish
+# it outside loopback.
 #
-# La base de datos va en el volumen de datos, en /var/lib/mcp-correo. Sin
-# ese volumen el contenedor es de solo lectura y la base no se puede
-# escribir: las cuentas se perderían en cada reinicio.
+# The database lives in the data volume, at /var/lib/mcp-correo. Without
+# that volume the container is read-only and the database cannot be
+# written: the accounts would be lost on every restart.
 #
-# No pongas secretos en este archivo: Portainer los rellena como ${VAR}.
-# El contrato completo de variables está en docs/configuracion.md.
+# Do not put secrets in this file: Portainer fills them in as ${VAR}.
+# The complete variable contract is in docs/configuration.md.
 
 services:
   mcp:
@@ -51,48 +52,47 @@ services:
     pids_limit: 128
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
-    # De dónde salen las variables del contenedor.
+    # Where the container's variables come from.
     #
-    # stack.env: lo escribe Portainer con todas las variables del stack (las
-    # que defines a mano y las del .env que subes). Es lo que hace llegar
-    # las variables del stack al contenedor.
+    # stack.env: written by Portainer with every stack variable (the ones
+    # you define by hand and the ones from the .env you upload). It is what
+    # carries the stack variables into the container.
     #
-    # .env: el fichero del directorio del compose. Lo lee compose para
-    # interpolar y, además, lo metemos aquí para que las variables también
-    # lleguen al contenedor cuando se despliega en local, donde no hay
-    # stack.env.
+    # .env: the file in the compose directory. Compose reads it to
+    # interpolate and we also pass it here, so the variables reach the
+    # container in a local deployment, where there is no stack.env.
     #
-    # Los dos son opcionales: si el que exista se usa. Lo que el proceso
-    # necesita de verdad (el bearer, la clave y el token del panel) se
-    # comprueba al arrancar, y si falta alguno para diciendo cuál.
-    # Compose 2.24 o superior.
+    # Both are optional: whichever exists is used. What the process really
+    # needs (the bearer, the key, and the panel token) is checked at
+    # startup, and it says which one is missing.
+    # Compose 2.24 or later.
     env_file:
       - path: ${MCP_STACK_ENV_FILE:-stack.env}
         required: false
       - path: .env
         required: false
     environment:
-      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:?Define MCP_BEARER_TOKEN en las variables del stack}
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:?Set MCP_BEARER_TOKEN in the stack variables}
       MCP_BIND_HOST: 0.0.0.0
       MCP_BIND_PORT: "8765"
       MCP_ALLOW_NONLOCAL_BIND: "1"
       MCP_AUDIT_LOG: /var/log/mcp-correo/audit.jsonl
-      # Las cuentas se gestionan desde el panel y viven en la base de datos.
+      # Accounts are managed from the panel and live in the database.
       #
-      # Interruptores globales. Apagados por defecto.
+      # Global switches. Off by default.
       MCP_ENABLE_SEND: ${MCP_ENABLE_SEND:-false}
       MCP_ENABLE_MARK: ${MCP_ENABLE_MARK:-false}
       MCP_ENABLE_DELETE: ${MCP_ENABLE_DELETE:-false}
       MCP_ENABLE_DRAFTS: ${MCP_ENABLE_DRAFTS:-false}
-      # Envío directo: una sola llamada, sin confirmación por mensaje.
-      # Apagado por defecto; el permiso por cuenta se pone en el panel.
+      # Direct sending: a single call, with no confirmation per message.
+      # Off by default; the per-account permission is set in the panel.
       MCP_ENABLE_DIRECT_SEND: ${MCP_ENABLE_DIRECT_SEND:-false}
-      # Red. MCP_PUBLIC_HOST arma allowed_hosts y allowed_origins; las
-      # listas explícitas los sustituyen.
+      # Network. MCP_PUBLIC_HOST builds allowed_hosts and allowed_origins;
+      # the explicit lists replace them.
       MCP_PUBLIC_HOST: ${MCP_PUBLIC_HOST:-}
       MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}
       MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
-      # Límites. El cliente no puede subirlos.
+      # Limits. The client cannot raise them.
       MCP_MAX_RESULTS: ${MCP_MAX_RESULTS:-100}
       MCP_MAX_CHARS: ${MCP_MAX_CHARS:-20000}
       MCP_MAX_ATTACHMENT_BYTES: ${MCP_MAX_ATTACHMENT_BYTES:-5000000}
@@ -108,29 +108,29 @@ services:
       MCP_SMTP_SECURITY: ${MCP_SMTP_SECURITY:-ssl}
       MCP_ALLOWED_RECIPIENT_DOMAINS: ${MCP_ALLOWED_RECIPIENT_DOMAINS:-}
       MCP_ALLOWED_ATTACHMENT_TYPES: ${MCP_ALLOWED_ATTACHMENT_TYPES:-}
-      # Panel de control. Siempre está: es la forma de gestionar las
-      # cuentas. La base de datos vive en el volumen de datos, así que
-      # sobrevive a los reinicios y a los redespliegues.
+      # Control panel. It is always there: it is the way to manage the
+      # accounts. The database lives in the data volume, so it survives
+      # restarts and redeployments.
       #
-      # MCP_DASHBOARD_KEY cifra las contraseñas de las cuentas. No está en
-      # la base de datos: si se pierde, las contraseñas guardadas no se
-      # pueden descifrar. Guárdala aparte.
+      # MCP_DASHBOARD_KEY encrypts the account passwords. It is not in the
+      # database: if it is lost, the stored passwords cannot be decrypted.
+      # Keep a separate copy.
       MCP_DASHBOARD_DB: ${MCP_DASHBOARD_DB:-/var/lib/mcp-correo/cuentas.db}
-      MCP_DASHBOARD_KEY: ${MCP_DASHBOARD_KEY:?Define MCP_DASHBOARD_KEY en las variables del stack}
-      MCP_DASHBOARD_TOKEN: ${MCP_DASHBOARD_TOKEN:?Define MCP_DASHBOARD_TOKEN en las variables del stack}
+      MCP_DASHBOARD_KEY: ${MCP_DASHBOARD_KEY:?Set MCP_DASHBOARD_KEY in the stack variables}
+      MCP_DASHBOARD_TOKEN: ${MCP_DASHBOARD_TOKEN:?Set MCP_DASHBOARD_TOKEN in the stack variables}
       MCP_DASHBOARD_BIND_HOST: 0.0.0.0
       MCP_DASHBOARD_BIND_PORT: "8766"
     ports:
       - "${MCP_PUBLISH_BIND:-127.0.0.1}:${MCP_PUBLISH_PORT:-8765}:8765"
-      # El panel, solo en loopback. No lo publiques tal cual: el puerto del
-      # host sale en 127.0.0.1 y quien lo abra tiene las contraseñas.
+      # The panel, loopback only. Do not publish it as it is: the host port
+      # comes out on 127.0.0.1 and whoever opens it has the passwords.
       - "${MCP_DASHBOARD_PUBLISH_BIND:-127.0.0.1}:${MCP_DASHBOARD_PUBLISH_PORT:-8766}:8766"
     volumes:
       - audit:/var/log/mcp-correo
-      # La base de datos de las cuentas. El contenedor es de solo lectura:
-      # sin este volumen, la base no se puede escribir.
+      # The accounts database. The container is read-only: without this
+      # volume, the database cannot be written.
       - data:/var/lib/mcp-correo
-    # Etiquetas Traefik, opcionales. Sustituye el dominio y la red del proxy.
+    # Optional Traefik labels. Replace the domain and the proxy network.
     # labels:
     #   - "traefik.enable=true"
     #   - "traefik.http.routers.mailproxy-mcp.rule=Host(`mcp.example.com`)"
@@ -158,17 +158,17 @@ services:
   audit-rotate:
     container_name: mailproxy-mcp-audit-rotate
     image: ${MCP_IMAGE:-mailproxy-mcp:local}
-    # Misma imagen que mcp. Sin build propio: se construye una sola vez.
-    # never: el pull de Portainer no busca mailproxy-mcp:local en un registro.
+    # Same image as mcp. No separate build: it is built only once.
+    # never: the Portainer pull does not look for mailproxy-mcp:local in a registry.
     pull_policy: ${MCP_PULL_POLICY:-never}
     depends_on:
       - mcp
     entrypoint: ["python", "/app/docker/rotate_audit.py"]
     command: ["--loop"]
-    # El HEALTHCHECK de la imagen espera un servidor HTTP en el 8765 y en
-    # el 8766 del panel. Este servicio no sirve HTTP: es un bucle que vigila
-    # el fichero. Sin esto el contenedor quedaría "unhealthy" para siempre,
-    # con Connection refused.
+    # The image HEALTHCHECK expects an HTTP server on 8765 and on the
+    # panel's 8766. This service does not serve HTTP: it is a loop that
+    # watches the file. Without this the container would stay "unhealthy"
+    # forever, with Connection refused.
     healthcheck:
       disable: true
     restart: unless-stopped
@@ -194,14 +194,14 @@ services:
           memory: 64M
 
 volumes:
-  # La auditoría: un JSONL por llamada.
+  # The audit log: one JSONL entry per call.
   audit:
-  # La base de datos: dominios y cuentas, con las contraseñas cifradas.
-  # Sin este volumen el contenedor es de solo lectura y las cuentas se
-  # perderían en cada reinicio.
+  # The database: domains and accounts, with the passwords encrypted.
+  # Without this volume the container is read-only and the accounts would
+  # be lost on every restart.
   data:
 
-# Red externa de un Traefik ya creado. Descomenta junto con las etiquetas.
+# External network of an existing Traefik. Uncomment together with the labels.
 # networks:
 #   proxy:
 #     external: true
